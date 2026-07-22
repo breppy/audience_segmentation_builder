@@ -4,6 +4,7 @@ import { Dashboard } from './pages/Dashboard';
 import { NewSegment } from './pages/NewSegment';
 import { SegmentDetail } from './pages/SegmentDetail';
 import { useSegments } from './hooks/useSegments';
+import { useAirtableRef } from './hooks/useAirtableRef';
 import './App.css';
 
 export default function App() {
@@ -21,17 +22,20 @@ export default function App() {
     deleteCampaignUsage,
   } = useSegments();
 
+  const refData = useAirtableRef();
+
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard segments={segments} />} />
-          <Route path="/new" element={<NewSegment onAdd={addSegment} />} />
+          <Route path="/new" element={<NewSegment onAdd={addSegment} refData={refData} />} />
           <Route
             path="/segment/:id"
             element={
               <SegmentDetail
                 segments={segments}
+                refData={refData}
                 onSubmitForApproval={submitForApproval}
                 onApproveLayer2={approveLayer2}
                 onSaveLayer3={saveLayer3}

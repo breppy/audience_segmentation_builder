@@ -16,6 +16,11 @@ dist-ssr
 vite.config.js
 vite.config.d.ts
 
+# Environment files — never commit credentials
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

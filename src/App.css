@@ -445,6 +445,48 @@
 .danger-zone h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: .05em; margin-bottom: .75rem; }
 .danger-actions { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 
+/* ─────────────── Suppression checklist ─────────────── */
+.suppression-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .75rem;
+  padding: .5rem 0;
+}
+.suppression-item {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+.suppression-item input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* ─────────────── Alert banner ─────────────── */
+.alert {
+  padding: .75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+.alert-warning {
+  background: var(--warning-light);
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+/* ─────────────── Airtable sync badge ─────────────── */
+.synced-badge {
+  font-size: 11px;
+  color: var(--success);
+  font-weight: 500;
+}
+
 /* ─────────────── Utilities ─────────────── */
 .mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
 .muted { color: var(--text-muted); }

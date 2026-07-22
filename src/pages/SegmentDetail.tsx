@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import type { Segment, Channel, Layer3Technical, CampaignUsage } from '../types';
+import type { AirtableRefData } from '../hooks/useAirtableRef';
 import { StatusBadge } from '../components/StatusBadge';
 import { StageTracker } from '../components/StageTracker';
 
 interface Props {
   segments: Segment[];
+  refData: AirtableRefData;
   onSubmitForApproval: (id: string) => void;
   onApproveLayer2: (id: string) => void;
   onSaveLayer3: (id: string, layer3: Layer3Technical) => void;
@@ -17,21 +19,26 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
-function Layer3Form({ onSave, onCancel }: { onSave: (l3: Layer3Technical) => void; onCancel: () => void }) {
-  const [technicalBuild, setTechnicalBuild] = useState('');
+function Layer3Form({ onSave, onCancel }: {
+  onSave: (l3: Layer3Technical) => void;
+  onCancel: () => void;
+}) {
+  const [loGroupName, setLoGroupName] = useState('');
+  const [bbcrmQueryName, setBbcrmQueryName] = useState('');
   const [dataSources, setDataSources] = useState('');
   const [refreshStrategy, setRefreshStrategy] = useState('');
+  const [refreshFrequencyDetails, setRefreshFrequencyDetails] = useState('');
   const [deviations, setDeviations] = useState('None');
-  const [estimatedBuildTime, setEstimatedBuildTime] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
-      technicalBuild,
+      loGroupName,
+      bbcrmQueryName,
       dataSources: dataSources.split('\n').map(s => s.trim()).filter(Boolean),
       refreshStrategy,
+      refreshFrequencyDetails,
       deviations,
-      estimatedBuildTime,
       layer3CompletedDate: new Date().toISOString().split('T')[0],
     });
   };
@@ -39,26 +46,70 @@ function Layer3Form({ onSave, onCancel }: { onSave: (l3: Layer3Technical) => voi
   return (
     <form onSubmit={handleSubmit} className="form-card form-card-inset">
       <h3 className="form-section-title">Layer 3: Technical Design</h3>
-      <div className="field">
-        <label className="label">Technical Build <span className="label-hint">— BBCRM query name / LO group name</span></label>
-        <textarea className="input textarea" value={technicalBuild} onChange={e => setTechnicalBuild(e.target.value)} rows={2} placeholder="e.g. BBCRM query CFS_Lapsed_2027, LO group FE_CFS_2027_Lapsed" required />
+
+      <div className="field-row">
+        <div className="field">
+          <label className="label">LO Group Name</label>
+          <input
+            className="input"
+            value={loGroupName}
+            onChange={e => setLoGroupName(e.target.value)}
+            placeholder="e.g. FE_CFS_2027_Lapsed"
+          />
+        </div>
+        <div className="field">
+          <label className="label">BBCRM Query Name</label>
+          <input
+            className="input"
+            value={bbcrmQueryName}
+            onChange={e => setBbcrmQueryName(e.target.value)}
+            placeholder="e.g. CFS_Lapsed_2027"
+          />
+        </div>
       </div>
+
       <div className="field">
         <label className="label">Data Sources <span className="label-hint">— One per line</span></label>
-        <textarea className="input textarea" value={dataSources} onChange={e => setDataSources(e.target.value)} rows={2} placeholder="BBCRM participation table&#10;Opt-in field" />
+        <textarea
+          className="input textarea"
+          value={dataSources}
+          onChange={e => setDataSources(e.target.value)}
+          rows={2}
+          placeholder="BBCRM participation table&#10;Opt-in field"
+        />
       </div>
+
       <div className="field">
         <label className="label">Refresh Strategy</label>
-        <input className="input" value={refreshStrategy} onChange={e => setRefreshStrategy(e.target.value)} placeholder="e.g. Daily during campaign season (Aug–Oct)" />
+        <input
+          className="input"
+          value={refreshStrategy}
+          onChange={e => setRefreshStrategy(e.target.value)}
+          placeholder="e.g. Daily during campaign season (Aug–Oct)"
+        />
       </div>
+
+      <div className="field">
+        <label className="label">Refresh Frequency Details</label>
+        <input
+          className="input"
+          value={refreshFrequencyDetails}
+          onChange={e => setRefreshFrequencyDetails(e.target.value)}
+          placeholder="e.g. 3–5 days build; daily refresh Aug–Oct"
+        />
+      </div>
+
       <div className="field">
         <label className="label">Deviations from Layer 2</label>
-        <textarea className="input textarea" value={deviations} onChange={e => setDeviations(e.target.value)} rows={2} placeholder="None — or describe what couldn't be built exactly as specified and the agreed workaround" />
+        <textarea
+          className="input textarea"
+          value={deviations}
+          onChange={e => setDeviations(e.target.value)}
+          rows={2}
+          placeholder="None — or describe what couldn't be built exactly as specified"
+        />
       </div>
-      <div className="field">
-        <label className="label">Estimated Build Time</label>
-        <input className="input" value={estimatedBuildTime} onChange={e => setEstimatedBuildTime(e.target.value)} placeholder="e.g. 3–5 days" />
-      </div>
+
       <div className="form-actions">
         <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn btn-primary">Save Layer 3</button>
@@ -67,26 +118,82 @@ function Layer3Form({ onSave, onCancel }: { onSave: (l3: Layer3Technical) => voi
   );
 }
 
-function CampaignUsageForm({ onSave, onCancel }: { onSave: (u: Omit<CampaignUsage, 'id'>) => void; onCancel: () => void }) {
+function CampaignUsageForm({ onSave, onCancel, refData }: {
+  onSave: (u: Omit<CampaignUsage, 'id'>) => void;
+  onCancel: () => void;
+  refData: AirtableRefData;
+}) {
   const [campaignName, setCampaignName] = useState('');
+  const [campaignGoal, setCampaignGoal] = useState('');
+  const [campaignOwner, setCampaignOwner] = useState('');
   const [sendDate, setSendDate] = useState(new Date().toISOString().split('T')[0]);
   const [channel, setChannel] = useState<Channel>('email');
+  const [intendedSegmentSize, setIntendedSegmentSize] = useState('');
   const [deliveryAudienceSize, setDeliveryAudienceSize] = useState('');
+  const [creativeTheme, setCreativeTheme] = useState('');
   const [notes, setNotes] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ campaignName, sendDate, channel, deliveryAudienceSize: Number(deliveryAudienceSize), notes });
+    onSave({
+      campaignName,
+      campaignGoal,
+      campaignOwner,
+      sendDate,
+      channel,
+      intendedSegmentSize: Number(intendedSegmentSize) || 0,
+      deliveryAudienceSize: Number(deliveryAudienceSize) || 0,
+      creativeTheme,
+      notes,
+    });
   };
+
+  const userOptions = refData.users;
 
   return (
     <form onSubmit={handleSubmit} className="form-card form-card-inset">
       <h3 className="form-section-title">Log Campaign Usage</h3>
+
       <div className="field">
-        <label className="label">Campaign Name</label>
-        <input className="input" value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="e.g. CFS 2027 Registration Push — Email 1" required />
+        <label className="label">Campaign Name <span className="required">*</span></label>
+        <input
+          className="input"
+          value={campaignName}
+          onChange={e => setCampaignName(e.target.value)}
+          placeholder="e.g. CFS 2027 Registration Push — Email 1"
+          required
+        />
       </div>
+
+      <div className="field">
+        <label className="label">Campaign Goal</label>
+        <input
+          className="input"
+          value={campaignGoal}
+          onChange={e => setCampaignGoal(e.target.value)}
+          placeholder="e.g. Drive registrations for CFS 2027"
+        />
+      </div>
+
       <div className="field-row">
+        <div className="field">
+          <label className="label">Campaign Owner</label>
+          {userOptions.length > 0 ? (
+            <select className="input select" value={campaignOwner} onChange={e => setCampaignOwner(e.target.value)}>
+              <option value="">— Select —</option>
+              {userOptions.map(u => (
+                <option key={u.recordId} value={u.name}>{u.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="input"
+              value={campaignOwner}
+              onChange={e => setCampaignOwner(e.target.value)}
+              placeholder="e.g. Katie Klein"
+            />
+          )}
+        </div>
         <div className="field">
           <label className="label">Send Date</label>
           <input className="input" type="date" value={sendDate} onChange={e => setSendDate(e.target.value)} required />
@@ -100,15 +207,54 @@ function CampaignUsageForm({ onSave, onCancel }: { onSave: (u: Omit<CampaignUsag
             <option value="mail">Mail</option>
           </select>
         </div>
+      </div>
+
+      <div className="field-row">
+        <div className="field">
+          <label className="label">Intended Segment Size</label>
+          <input
+            className="input"
+            type="number"
+            value={intendedSegmentSize}
+            onChange={e => setIntendedSegmentSize(e.target.value)}
+            placeholder="e.g. 4500"
+            min={0}
+          />
+        </div>
         <div className="field">
           <label className="label">Delivery Audience Size</label>
-          <input className="input" type="number" value={deliveryAudienceSize} onChange={e => setDeliveryAudienceSize(e.target.value)} placeholder="e.g. 4187" required min={0} />
+          <input
+            className="input"
+            type="number"
+            value={deliveryAudienceSize}
+            onChange={e => setDeliveryAudienceSize(e.target.value)}
+            placeholder="e.g. 4187"
+            min={0}
+          />
         </div>
       </div>
+
+      <div className="field">
+        <label className="label">Creative / Message Theme</label>
+        <input
+          className="input"
+          value={creativeTheme}
+          onChange={e => setCreativeTheme(e.target.value)}
+          placeholder="e.g. Urgency — X days left to register"
+        />
+      </div>
+
       <div className="field">
         <label className="label">Notes</label>
-        <textarea className="input textarea" value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="e.g. 156 people registered since last send; audience shrank due to dynamic refresh" />
+        <textarea
+          className="input textarea"
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          rows={2}
+          placeholder="e.g. 156 people registered since last send; audience shrank due to dynamic refresh"
+        />
       </div>
+
       <div className="form-actions">
         <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn btn-primary">Log Send</button>
@@ -117,12 +263,18 @@ function CampaignUsageForm({ onSave, onCancel }: { onSave: (u: Omit<CampaignUsag
   );
 }
 
-const WARMTH_LABEL: Record<string, string> = { warm: 'Warm', cold: 'Cold', neutral: 'Neutral' };
-const USE_LABEL: Record<string, string> = { multiple_campaigns: 'Multiple Campaigns', one_time: 'One-Time', seasonal: 'Seasonal' };
-const CHANNEL_LABEL: Record<string, string> = { email: 'Email', sms: 'SMS', paid: 'Paid', mail: 'Mail' };
+const USE_LABEL: Record<string, string> = {
+  multiple_campaigns: 'Multiple Campaigns',
+  one_time: 'One-Time',
+  seasonal: 'Seasonal',
+};
+const CHANNEL_LABEL: Record<string, string> = {
+  email: 'Email', sms: 'SMS', paid: 'Paid', mail: 'Mail',
+};
 
 export function SegmentDetail({
   segments,
+  refData,
   onSubmitForApproval,
   onApproveLayer2,
   onSaveLayer3,
@@ -156,6 +308,11 @@ export function SegmentDetail({
 
   const { layer2, layer3 } = segment;
 
+  // Resolve suppression names from ref data
+  const suppressionNames = layer2.suppressions
+    .map(id => refData.suppressions.find(s => s.recordId === id)?.name ?? id)
+    .filter(Boolean);
+
   return (
     <div className="page">
       <div className="page-header">
@@ -166,6 +323,9 @@ export function SegmentDetail({
             <code className="mono">{segment.segmentId}</code>
             <StatusBadge status={segment.status} />
             {segment.dateLocked && <span className="meta-item">Locked {segment.dateLocked}</span>}
+            {segment.airtableId && (
+              <span className="meta-item synced-badge" title={`Airtable ID: ${segment.airtableId}`}>✓ Synced</span>
+            )}
           </div>
         </div>
         <div className="header-actions">
@@ -176,10 +336,10 @@ export function SegmentDetail({
           )}
           {segment.status === 'pending_approval' && (
             <button className="btn btn-primary" onClick={() => onApproveLayer2(segment.id)}>
-              Katie Approves → Send to DevIT
+              Approve → Send to DevIT
             </button>
           )}
-          {segment.status === 'building' && !segment.layer3 && (
+          {(segment.status === 'feasibility_review' || segment.status === 'building') && !segment.layer3 && (
             <button className="btn btn-primary" onClick={() => setShowLayer3Form(true)}>
               + Add Layer 3 Build
             </button>
@@ -194,7 +354,7 @@ export function SegmentDetail({
               Mark Active →
             </button>
           )}
-          {(segment.status === 'active') && (
+          {segment.status === 'active' && (
             <button className="btn btn-secondary" onClick={() => setShowUsageForm(true)}>
               + Log Campaign Send
             </button>
@@ -220,6 +380,18 @@ export function SegmentDetail({
             <div className="detail-value">{layer2.businessGoal}</div>
           </div>
 
+          {layer2.campaignIntent && (
+            <div className="detail-field">
+              <div className="detail-label">Campaign Intent</div>
+              <div className="detail-value">{layer2.campaignIntent}</div>
+            </div>
+          )}
+
+          <div className="detail-field">
+            <div className="detail-label">Expected Use</div>
+            <div className="detail-value">{USE_LABEL[layer2.expectedUse] ?? layer2.expectedUse}</div>
+          </div>
+
           <div className="detail-field">
             <div className="detail-label">Inclusion Criteria</div>
             <ul className="criteria-list">
@@ -236,25 +408,14 @@ export function SegmentDetail({
             </div>
           )}
 
-          {layer2.suppressions.length > 0 && (
+          {suppressionNames.length > 0 && (
             <div className="detail-field">
-              <div className="detail-label">Suppressions</div>
+              <div className="detail-label">Suppressions Applied</div>
               <ul className="criteria-list">
-                {layer2.suppressions.map((s, idx) => <li key={idx}>{s}</li>)}
+                {suppressionNames.map((s, idx) => <li key={idx}>{s}</li>)}
               </ul>
             </div>
           )}
-
-          <div className="detail-field-row">
-            <div className="detail-field">
-              <div className="detail-label">Warmth</div>
-              <div className="detail-value">{WARMTH_LABEL[layer2.warmth]}</div>
-            </div>
-            <div className="detail-field">
-              <div className="detail-label">Expected Use</div>
-              <div className="detail-value">{USE_LABEL[layer2.expectedUse]}</div>
-            </div>
-          </div>
         </div>
 
         {/* Layer 3 */}
@@ -284,10 +445,17 @@ export function SegmentDetail({
 
           {layer3 && (
             <>
-              <div className="detail-field">
-                <div className="detail-label">Technical Build</div>
-                <div className="detail-value mono-block">{layer3.technicalBuild}</div>
+              <div className="detail-field-row">
+                <div className="detail-field">
+                  <div className="detail-label">LO Group Name</div>
+                  <div className="detail-value mono-block">{layer3.loGroupName || '—'}</div>
+                </div>
+                <div className="detail-field">
+                  <div className="detail-label">BBCRM Query Name</div>
+                  <div className="detail-value mono-block">{layer3.bbcrmQueryName || '—'}</div>
+                </div>
               </div>
+
               {layer3.dataSources.length > 0 && (
                 <div className="detail-field">
                   <div className="detail-label">Data Sources</div>
@@ -296,25 +464,28 @@ export function SegmentDetail({
                   </ul>
                 </div>
               )}
-              <div className="detail-field">
-                <div className="detail-label">Refresh Strategy</div>
-                <div className="detail-value">{layer3.refreshStrategy || '—'}</div>
+
+              <div className="detail-field-row">
+                <div className="detail-field">
+                  <div className="detail-label">Refresh Strategy</div>
+                  <div className="detail-value">{layer3.refreshStrategy || '—'}</div>
+                </div>
+                <div className="detail-field">
+                  <div className="detail-label">Refresh Frequency Details</div>
+                  <div className="detail-value">{layer3.refreshFrequencyDetails || '—'}</div>
+                </div>
               </div>
+
               <div className="detail-field">
                 <div className="detail-label">Deviations from Layer 2</div>
-                <div className={`detail-value ${layer3.deviations !== 'None' && layer3.deviations ? 'deviation-highlight' : ''}`}>
+                <div className={`detail-value ${layer3.deviations && layer3.deviations !== 'None' ? 'deviation-highlight' : ''}`}>
                   {layer3.deviations || 'None'}
                 </div>
               </div>
-              <div className="detail-field-row">
-                <div className="detail-field">
-                  <div className="detail-label">Est. Build Time</div>
-                  <div className="detail-value">{layer3.estimatedBuildTime || '—'}</div>
-                </div>
-                <div className="detail-field">
-                  <div className="detail-label">Completed</div>
-                  <div className="detail-value">{layer3.layer3CompletedDate || '—'}</div>
-                </div>
+
+              <div className="detail-field">
+                <div className="detail-label">Completed</div>
+                <div className="detail-value">{layer3.layer3CompletedDate || '—'}</div>
               </div>
             </>
           )}
@@ -324,7 +495,7 @@ export function SegmentDetail({
       {/* Campaign Usage */}
       <div className="detail-card" style={{ marginTop: '1.5rem' }}>
         <div className="detail-card-header">
-          <h2>Campaign Usage & Population Tracking (Layer 4)</h2>
+          <h2>Campaign Usage &amp; Population Tracking (Layer 4)</h2>
           {segment.status === 'active' && (
             <button className="btn btn-sm" onClick={() => setShowUsageForm(v => !v)}>
               {showUsageForm ? 'Cancel' : '+ Log Send'}
@@ -336,6 +507,7 @@ export function SegmentDetail({
           <CampaignUsageForm
             onSave={(u) => { onAddCampaignUsage(segment.id, u); setShowUsageForm(false); }}
             onCancel={() => setShowUsageForm(false)}
+            refData={refData}
           />
         )}
 
@@ -347,9 +519,13 @@ export function SegmentDetail({
               <thead>
                 <tr>
                   <th>Campaign</th>
+                  <th>Goal</th>
+                  <th>Owner</th>
                   <th>Send Date</th>
                   <th>Channel</th>
-                  <th>Audience Size</th>
+                  <th>Intended</th>
+                  <th>Delivered</th>
+                  <th>Theme</th>
                   <th>Notes</th>
                   <th></th>
                 </tr>
@@ -358,9 +534,13 @@ export function SegmentDetail({
                 {segment.campaignUsage.map(u => (
                   <tr key={u.id}>
                     <td>{u.campaignName}</td>
+                    <td className="muted small">{u.campaignGoal || '—'}</td>
+                    <td className="muted small">{u.campaignOwner || '—'}</td>
                     <td>{u.sendDate}</td>
                     <td><span className="channel-badge">{CHANNEL_LABEL[u.channel]}</span></td>
-                    <td className="mono">{u.deliveryAudienceSize.toLocaleString()}</td>
+                    <td className="mono">{u.intendedSegmentSize ? u.intendedSegmentSize.toLocaleString() : '—'}</td>
+                    <td className="mono">{u.deliveryAudienceSize ? u.deliveryAudienceSize.toLocaleString() : '—'}</td>
+                    <td className="muted small">{u.creativeTheme || '—'}</td>
                     <td className="muted small">{u.notes}</td>
                     <td>
                       <button

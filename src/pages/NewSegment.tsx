@@ -1,20 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Segment, Warmth, ExpectedUse } from '../types';
+import type { Segment, ExpectedUse } from '../types';
+import type { AirtableRefData } from '../hooks/useAirtableRef';
 import { generateId, generateSegmentId } from '../utils/storage';
 
 interface Props {
   onAdd: (segment: Segment) => void;
+  refData: AirtableRefData;
 }
 
-function TagInput({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+function TagInput({ values, onChange, placeholder }: {
+  values: string[];
+  onChange: (v: string[]) => void;
+  placeholder: string;
+}) {
   const [input, setInput] = useState('');
 
   const add = () => {
     const trimmed = input.trim();
-    if (trimmed && !values.includes(trimmed)) {
-      onChange([...values, trimmed]);
-    }
+    if (trimmed && !values.includes(trimmed)) onChange([...values, trimmed]);
     setInput('');
   };
 
@@ -44,17 +48,53 @@ function TagInput({ values, onChange, placeholder }: { values: string[]; onChang
   );
 }
 
-export function NewSegment({ onAdd }: Props) {
+function SuppressionChecklist({ selected, onChange, suppressions, loading }: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  suppressions: AirtableRefData['suppressions'];
+  loading: boolean;
+}) {
+  const toggle = (id: string) => {
+    onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+  };
+
+  if (loading) return <p className="muted small">Loading suppressions…</p>;
+
+  if (suppressions.length === 0) {
+    return (
+      <p className="muted small">
+        No suppressions found in Airtable — add them to the Suppressions table to see them here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="suppression-checklist">
+      {suppressions.map(s => (
+        <label key={s.recordId} className="suppression-item">
+          <input
+            type="checkbox"
+            checked={selected.includes(s.recordId)}
+            onChange={() => toggle(s.recordId)}
+          />
+          <span>{s.name}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+export function NewSegment({ onAdd, refData }: Props) {
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
   const [owner, setOwner] = useState('');
-  const [approver, setApprover] = useState('Katie Klein');
+  const [approver, setApprover] = useState('');
   const [businessGoal, setBusinessGoal] = useState('');
+  const [campaignIntent, setCampaignIntent] = useState('');
   const [inclusions, setInclusions] = useState<string[]>([]);
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [suppressions, setSuppressions] = useState<string[]>([]);
-  const [warmth, setWarmth] = useState<Warmth>('neutral');
   const [expectedUse, setExpectedUse] = useState<ExpectedUse>('multiple_campaigns');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -82,10 +122,10 @@ export function NewSegment({ onAdd }: Props) {
       stage: 1,
       layer2: {
         businessGoal: businessGoal.trim(),
+        campaignIntent: campaignIntent.trim(),
         inclusions,
         exclusions,
         suppressions,
-        warmth,
         expectedUse,
       },
       layer3: null,
@@ -104,6 +144,8 @@ export function NewSegment({ onAdd }: Props) {
     navigate(`/segment/${segment.id}`);
   };
 
+  const userOptions = refData.users;
+
   return (
     <div className="page page-narrow">
       <div className="page-header">
@@ -113,25 +155,73 @@ export function NewSegment({ onAdd }: Props) {
         </div>
       </div>
 
+      {refData.error && (
+        <div className="alert alert-warning" style={{ marginBottom: '1rem' }}>
+          Airtable unavailable — dropdowns will be blank but you can still type names.{' '}
+          <span className="muted small">{refData.error}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="form-card">
         <section className="form-section">
           <h2 className="form-section-title">Segment Identity</h2>
 
           <div className="field">
             <label className="label">Segment Name <span className="required">*</span></label>
-            <input className={`input ${errors.name ? 'input-error' : ''}`} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. CFS 2027 Lapsed Participants" />
+            <input
+              className={`input ${errors.name ? 'input-error' : ''}`}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. CFS 2027 Lapsed Participants"
+            />
             {errors.name && <span className="field-error">{errors.name}</span>}
           </div>
 
           <div className="field-row">
             <div className="field">
               <label className="label">Business Owner <span className="required">*</span></label>
-              <input className={`input ${errors.owner ? 'input-error' : ''}`} value={owner} onChange={e => setOwner(e.target.value)} placeholder="e.g. Ashton - CFS" />
+              {userOptions.length > 0 ? (
+                <select
+                  className={`input select ${errors.owner ? 'input-error' : ''}`}
+                  value={owner}
+                  onChange={e => setOwner(e.target.value)}
+                >
+                  <option value="">— Select owner —</option>
+                  {userOptions.map(u => (
+                    <option key={u.recordId} value={u.name}>{u.name}{u.department ? ` (${u.department})` : ''}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className={`input ${errors.owner ? 'input-error' : ''}`}
+                  value={owner}
+                  onChange={e => setOwner(e.target.value)}
+                  placeholder="e.g. Ashton - CFS"
+                />
+              )}
               {errors.owner && <span className="field-error">{errors.owner}</span>}
             </div>
             <div className="field">
               <label className="label">Approver</label>
-              <input className="input" value={approver} onChange={e => setApprover(e.target.value)} placeholder="e.g. Katie Klein" />
+              {userOptions.length > 0 ? (
+                <select
+                  className="input select"
+                  value={approver}
+                  onChange={e => setApprover(e.target.value)}
+                >
+                  <option value="">— Select approver —</option>
+                  {userOptions.map(u => (
+                    <option key={u.recordId} value={u.name}>{u.name}{u.role ? ` · ${u.role}` : ''}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className="input"
+                  value={approver}
+                  onChange={e => setApprover(e.target.value)}
+                  placeholder="e.g. Katie Klein"
+                />
+              )}
             </div>
           </div>
         </section>
@@ -140,9 +230,40 @@ export function NewSegment({ onAdd }: Props) {
           <h2 className="form-section-title">Layer 2: Business Definition</h2>
 
           <div className="field">
-            <label className="label">Business Goal / Intent <span className="required">*</span></label>
-            <textarea className={`input textarea ${errors.businessGoal ? 'input-error' : ''}`} value={businessGoal} onChange={e => setBusinessGoal(e.target.value)} placeholder="e.g. Reactivate lapsed participants from the 2022–2025 cycle who didn't participate in 2026" rows={2} />
+            <label className="label">Business Goal <span className="required">*</span></label>
+            <textarea
+              className={`input textarea ${errors.businessGoal ? 'input-error' : ''}`}
+              value={businessGoal}
+              onChange={e => setBusinessGoal(e.target.value)}
+              placeholder="e.g. Reactivate lapsed participants from the 2022–2025 cycle who didn't participate in 2026"
+              rows={2}
+            />
             {errors.businessGoal && <span className="field-error">{errors.businessGoal}</span>}
+          </div>
+
+          <div className="field">
+            <label className="label">Campaign Intent <span className="label-hint">— Specific campaign or initiative this segment supports</span></label>
+            <input
+              className="input"
+              value={campaignIntent}
+              onChange={e => setCampaignIntent(e.target.value)}
+              placeholder="e.g. CFS 2027 Registration Campaign"
+            />
+          </div>
+
+          <div className="field-row" style={{ alignItems: 'flex-start' }}>
+            <div className="field" style={{ flex: 1 }}>
+              <label className="label">Expected Use</label>
+              <select
+                className="input select"
+                value={expectedUse}
+                onChange={e => setExpectedUse(e.target.value as ExpectedUse)}
+              >
+                <option value="multiple_campaigns">Multiple Campaigns</option>
+                <option value="one_time">One-Time Use</option>
+                <option value="seasonal">Seasonal</option>
+              </select>
+            </div>
           </div>
 
           <div className="field">
@@ -157,34 +278,26 @@ export function NewSegment({ onAdd }: Props) {
           </div>
 
           <div className="field">
-            <label className="label">Known Suppressions <span className="label-hint">— Any suppression lists to apply?</span></label>
-            <TagInput values={suppressions} onChange={setSuppressions} placeholder="e.g. Do-not-contact list, press Enter" />
-          </div>
-
-          <div className="field-row">
-            <div className="field">
-              <label className="label">Warmth</label>
-              <select className="input select" value={warmth} onChange={e => setWarmth(e.target.value as Warmth)}>
-                <option value="warm">Warm</option>
-                <option value="cold">Cold</option>
-                <option value="neutral">Neutral</option>
-              </select>
-            </div>
-            <div className="field">
-              <label className="label">Expected Use</label>
-              <select className="input select" value={expectedUse} onChange={e => setExpectedUse(e.target.value as ExpectedUse)}>
-                <option value="multiple_campaigns">Multiple Campaigns</option>
-                <option value="one_time">One-Time Use</option>
-                <option value="seasonal">Seasonal</option>
-              </select>
-            </div>
+            <label className="label">Known Suppressions <span className="label-hint">— Standard suppression lists to apply</span></label>
+            <SuppressionChecklist
+              selected={suppressions}
+              onChange={setSuppressions}
+              suppressions={refData.suppressions}
+              loading={refData.loading}
+            />
           </div>
         </section>
 
         <section className="form-section">
           <h2 className="form-section-title">Additional Notes</h2>
           <div className="field">
-            <textarea className="input textarea" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Any context, open questions, or background for DevIT…" />
+            <textarea
+              className="input textarea"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Any context, open questions, or background for DevIT…"
+            />
           </div>
         </section>
 
