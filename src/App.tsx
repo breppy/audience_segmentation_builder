@@ -11,6 +11,7 @@ export default function App() {
   const {
     segments,
     addSegment,
+    updateLayer2,
     deleteSegment,
     submitForApproval,
     approveLayer2,
@@ -36,6 +37,7 @@ export default function App() {
               <SegmentDetail
                 segments={segments}
                 refData={refData}
+                onUpdateLayer2={updateLayer2}
                 onSubmitForApproval={submitForApproval}
                 onApproveLayer2={approveLayer2}
                 onSaveLayer3={saveLayer3}

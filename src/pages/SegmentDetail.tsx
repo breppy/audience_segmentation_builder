@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import type { Segment, Channel, Layer3Technical, CampaignUsage } from '../types';
+import type { Segment, Channel, Layer2Definition, Layer3Technical, CampaignUsage, ExpectedUse } from '../types';
 import type { AirtableRefData } from '../hooks/useAirtableRef';
 import { StatusBadge } from '../components/StatusBadge';
 import { StageTracker } from '../components/StageTracker';
@@ -8,6 +8,7 @@ import { StageTracker } from '../components/StageTracker';
 interface Props {
   segments: Segment[];
   refData: AirtableRefData;
+  onUpdateLayer2: (id: string, layer2: Layer2Definition, meta?: { name?: string; owner?: string; approver?: string }) => void;
   onSubmitForApproval: (id: string) => void;
   onApproveLayer2: (id: string) => void;
   onSaveLayer3: (id: string, layer3: Layer3Technical) => void;
@@ -17,6 +18,151 @@ interface Props {
   onAddCampaignUsage: (segmentId: string, usage: Omit<CampaignUsage, 'id'>) => void;
   onDeleteCampaignUsage: (segmentId: string, usageId: string) => void;
   onDelete: (id: string) => void;
+}
+
+function TagInput({ values, onChange, placeholder }: {
+  values: string[];
+  onChange: (v: string[]) => void;
+  placeholder: string;
+}) {
+  const [input, setInput] = useState('');
+  const add = () => {
+    const t = input.trim();
+    if (t && !values.includes(t)) onChange([...values, t]);
+    setInput('');
+  };
+  return (
+    <div className="tag-input-wrap">
+      <div className="tag-list">
+        {values.map(v => (
+          <span key={v} className="tag">
+            {v}
+            <button type="button" onClick={() => onChange(values.filter(x => x !== v))} className="tag-remove">×</button>
+          </span>
+        ))}
+      </div>
+      <div className="tag-input-row">
+        <input value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+          placeholder={placeholder} className="input" />
+        <button type="button" onClick={add} className="btn btn-sm">Add</button>
+      </div>
+    </div>
+  );
+}
+
+function Layer2EditForm({ segment, refData, onSave, onCancel }: {
+  segment: Segment;
+  refData: AirtableRefData;
+  onSave: (layer2: Layer2Definition, meta: { name: string; owner: string; approver: string }) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(segment.name);
+  const [owner, setOwner] = useState(segment.owner);
+  const [approver, setApprover] = useState(segment.approver);
+  const [businessGoal, setBusinessGoal] = useState(segment.layer2.businessGoal);
+  const [campaignIntent, setCampaignIntent] = useState(segment.layer2.campaignIntent);
+  const [inclusions, setInclusions] = useState(segment.layer2.inclusions);
+  const [exclusions, setExclusions] = useState(segment.layer2.exclusions);
+  const [suppressions, setSuppressions] = useState(segment.layer2.suppressions);
+  const [expectedUse, setExpectedUse] = useState<ExpectedUse>(segment.layer2.expectedUse);
+
+  const toggleSuppression = (id: string) =>
+    setSuppressions(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(
+      { businessGoal, campaignIntent, inclusions, exclusions, suppressions, expectedUse },
+      { name, owner, approver },
+    );
+  };
+
+  const userOptions = refData.users;
+
+  return (
+    <form onSubmit={handleSubmit} className="form-card form-card-inset">
+      <h3 className="form-section-title">Edit Layer 2 Definition</h3>
+
+      <div className="field">
+        <label className="label">Segment Name</label>
+        <input className="input" value={name} onChange={e => setName(e.target.value)} required />
+      </div>
+
+      <div className="field-row">
+        <div className="field">
+          <label className="label">Business Owner</label>
+          {userOptions.length > 0 ? (
+            <select className="input select" value={owner} onChange={e => setOwner(e.target.value)}>
+              <option value="">— Select owner —</option>
+              {userOptions.map(u => <option key={u.recordId} value={u.name}>{u.name}{u.department ? ` (${u.department})` : ''}</option>)}
+            </select>
+          ) : (
+            <input className="input" value={owner} onChange={e => setOwner(e.target.value)} />
+          )}
+        </div>
+        <div className="field">
+          <label className="label">Approver</label>
+          {userOptions.length > 0 ? (
+            <select className="input select" value={approver} onChange={e => setApprover(e.target.value)}>
+              <option value="">— Select approver —</option>
+              {userOptions.map(u => <option key={u.recordId} value={u.name}>{u.name}{u.role ? ` · ${u.role}` : ''}</option>)}
+            </select>
+          ) : (
+            <input className="input" value={approver} onChange={e => setApprover(e.target.value)} />
+          )}
+        </div>
+      </div>
+
+      <div className="field">
+        <label className="label">Business Goal</label>
+        <textarea className="input textarea" value={businessGoal} onChange={e => setBusinessGoal(e.target.value)} rows={2} required />
+      </div>
+
+      <div className="field">
+        <label className="label">Campaign Intent</label>
+        <input className="input" value={campaignIntent} onChange={e => setCampaignIntent(e.target.value)} placeholder="e.g. CFS 2027 Registration Campaign" />
+      </div>
+
+      <div className="field">
+        <label className="label">Expected Use</label>
+        <select className="input select" value={expectedUse} onChange={e => setExpectedUse(e.target.value as ExpectedUse)}>
+          <option value="multiple_campaigns">Multiple Campaigns</option>
+          <option value="one_time">One-Time Use</option>
+          <option value="seasonal">Seasonal</option>
+        </select>
+      </div>
+
+      <div className="field">
+        <label className="label">Inclusion Criteria</label>
+        <TagInput values={inclusions} onChange={setInclusions} placeholder="Add criterion, press Enter" />
+      </div>
+
+      <div className="field">
+        <label className="label">Exclusion Criteria</label>
+        <TagInput values={exclusions} onChange={setExclusions} placeholder="Add exclusion, press Enter" />
+      </div>
+
+      {refData.suppressions.length > 0 && (
+        <div className="field">
+          <label className="label">Known Suppressions</label>
+          <div className="suppression-checklist">
+            {refData.suppressions.map(s => (
+              <label key={s.recordId} className="suppression-item">
+                <input type="checkbox" checked={suppressions.includes(s.recordId)} onChange={() => toggleSuppression(s.recordId)} />
+                <span>{s.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="form-actions">
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  );
 }
 
 function Layer3Form({ onSave, onCancel }: {
@@ -275,6 +421,7 @@ const CHANNEL_LABEL: Record<string, string> = {
 export function SegmentDetail({
   segments,
   refData,
+  onUpdateLayer2,
   onSubmitForApproval,
   onApproveLayer2,
   onSaveLayer3,
@@ -291,6 +438,7 @@ export function SegmentDetail({
 
   const [showLayer3Form, setShowLayer3Form] = useState(false);
   const [showUsageForm, setShowUsageForm] = useState(false);
+  const [showLayer2Edit, setShowLayer2Edit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!segment) {
@@ -307,6 +455,7 @@ export function SegmentDetail({
   };
 
   const { layer2, layer3 } = segment;
+  const canEditLayer2 = !['locked', 'active', 'retired'].includes(segment.status);
 
   // Resolve suppression names from ref data
   const suppressionNames = layer2.suppressions
@@ -369,52 +518,75 @@ export function SegmentDetail({
         <div className="detail-card">
           <div className="detail-card-header">
             <h2>Layer 2: Business Definition</h2>
-            <div className="detail-meta">
-              Owner: <strong>{segment.owner || '—'}</strong> · Approver: <strong>{segment.approver || '—'}</strong>
-              {segment.dateApproved && <> · Approved: <strong>{segment.dateApproved}</strong></>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div className="detail-meta">
+                Owner: <strong>{segment.owner || '—'}</strong> · Approver: <strong>{segment.approver || '—'}</strong>
+                {segment.dateApproved && <> · Approved: <strong>{segment.dateApproved}</strong></>}
+              </div>
+              {canEditLayer2 && !showLayer2Edit && (
+                <button className="btn btn-sm btn-secondary" onClick={() => setShowLayer2Edit(true)}>
+                  Edit
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="detail-field">
-            <div className="detail-label">Business Goal</div>
-            <div className="detail-value">{layer2.businessGoal}</div>
-          </div>
-
-          {layer2.campaignIntent && (
-            <div className="detail-field">
-              <div className="detail-label">Campaign Intent</div>
-              <div className="detail-value">{layer2.campaignIntent}</div>
-            </div>
+          {showLayer2Edit && (
+            <Layer2EditForm
+              segment={segment}
+              refData={refData}
+              onSave={(layer2, meta) => {
+                onUpdateLayer2(segment.id, layer2, meta);
+                setShowLayer2Edit(false);
+              }}
+              onCancel={() => setShowLayer2Edit(false)}
+            />
           )}
 
-          <div className="detail-field">
-            <div className="detail-label">Expected Use</div>
-            <div className="detail-value">{USE_LABEL[layer2.expectedUse] ?? layer2.expectedUse}</div>
-          </div>
+          {!showLayer2Edit && (
+            <>
+              <div className="detail-field">
+                <div className="detail-label">Business Goal</div>
+                <div className="detail-value">{layer2.businessGoal}</div>
+              </div>
 
-          <div className="detail-field">
-            <div className="detail-label">Inclusion Criteria</div>
-            <ul className="criteria-list">
-              {layer2.inclusions.map((i, idx) => <li key={idx}>{i}</li>)}
-            </ul>
-          </div>
+              {layer2.campaignIntent && (
+                <div className="detail-field">
+                  <div className="detail-label">Campaign Intent</div>
+                  <div className="detail-value">{layer2.campaignIntent}</div>
+                </div>
+              )}
 
-          {layer2.exclusions.length > 0 && (
-            <div className="detail-field">
-              <div className="detail-label">Exclusion Criteria</div>
-              <ul className="criteria-list exclusions">
-                {layer2.exclusions.map((e, idx) => <li key={idx}>{e}</li>)}
-              </ul>
-            </div>
-          )}
+              <div className="detail-field">
+                <div className="detail-label">Expected Use</div>
+                <div className="detail-value">{USE_LABEL[layer2.expectedUse] ?? layer2.expectedUse}</div>
+              </div>
 
-          {suppressionNames.length > 0 && (
-            <div className="detail-field">
-              <div className="detail-label">Suppressions Applied</div>
-              <ul className="criteria-list">
-                {suppressionNames.map((s, idx) => <li key={idx}>{s}</li>)}
-              </ul>
-            </div>
+              <div className="detail-field">
+                <div className="detail-label">Inclusion Criteria</div>
+                <ul className="criteria-list">
+                  {layer2.inclusions.map((i, idx) => <li key={idx}>{i}</li>)}
+                </ul>
+              </div>
+
+              {layer2.exclusions.length > 0 && (
+                <div className="detail-field">
+                  <div className="detail-label">Exclusion Criteria</div>
+                  <ul className="criteria-list exclusions">
+                    {layer2.exclusions.map((e, idx) => <li key={idx}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              {suppressionNames.length > 0 && (
+                <div className="detail-field">
+                  <div className="detail-label">Suppressions Applied</div>
+                  <ul className="criteria-list">
+                    {suppressionNames.map((s, idx) => <li key={idx}>{s}</li>)}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
 

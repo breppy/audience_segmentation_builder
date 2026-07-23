@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { Segment, CampaignUsage, Layer3Technical, SegmentStatus } from '../types';
+import type { Segment, CampaignUsage, Layer2Definition, Layer3Technical, SegmentStatus } from '../types';
 import { loadSegments, saveSegments, generateId } from '../utils/storage';
 import {
   airtableEnabled,
@@ -80,6 +80,10 @@ export function useSegments() {
     });
   }, [updateSegment]);
 
+  const updateLayer2 = useCallback((id: string, layer2: Layer2Definition, meta: { name?: string; owner?: string; approver?: string } = {}) => {
+    updateSegment(id, { layer2, ...meta });
+  }, [updateSegment]);
+
   const saveLayer3 = useCallback((id: string, layer3: Layer3Technical) => {
     updateSegment(id, { layer3, status: 'building', stage: 3 });
   }, [updateSegment]);
@@ -134,6 +138,7 @@ export function useSegments() {
     segments,
     addSegment,
     updateSegment,
+    updateLayer2,
     deleteSegment,
     submitForApproval,
     approveLayer2,
