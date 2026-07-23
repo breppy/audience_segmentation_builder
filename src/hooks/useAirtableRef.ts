@@ -21,17 +21,20 @@ export function useAirtableRef(): AirtableRefData {
     let cancelled = false;
     setLoading(true);
 
-    Promise.all([fetchUsers(), fetchSuppressions()])
+    const settle = <T,>(p: Promise<T>, fallback: T): Promise<T> =>
+      p.catch((err: unknown) => {
+        console.warn('Airtable table fetch failed:', err instanceof Error ? err.message : err);
+        return fallback;
+      });
+
+    Promise.all([settle(fetchUsers(), []), settle(fetchSuppressions(), [])])
       .then(([u, s]) => {
         if (!cancelled) {
           setUsers(u);
           setSuppressions(s);
-          setError(null);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load Airtable data');
+          setError(u.length === 0 && s.length === 0
+            ? 'Could not load data from Airtable — check token and table names in browser console'
+            : null);
         }
       })
       .finally(() => {
