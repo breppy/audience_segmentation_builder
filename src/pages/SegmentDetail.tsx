@@ -62,6 +62,7 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
   const [approver, setApprover] = useState(segment.approver);
   const [businessGoal, setBusinessGoal] = useState(segment.layer2.businessGoal);
   const [campaignIntent, setCampaignIntent] = useState(segment.layer2.campaignIntent);
+  const [engagementRequirement, setEngagementRequirement] = useState(segment.layer2.engagementRequirement ?? '');
   const [inclusions, setInclusions] = useState(segment.layer2.inclusions);
   const [exclusions, setExclusions] = useState(segment.layer2.exclusions);
   const [suppressions, setSuppressions] = useState(segment.layer2.suppressions);
@@ -73,7 +74,7 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(
-      { businessGoal, campaignIntent, inclusions, exclusions, suppressions, expectedUse },
+      { businessGoal, campaignIntent, engagementRequirement, inclusions, exclusions, suppressions, expectedUse },
       { name, owner, approver },
     );
   };
@@ -125,6 +126,11 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
       </div>
 
       <div className="field">
+        <label className="label">Engagement Requirement</label>
+        <input className="input" value={engagementRequirement} onChange={e => setEngagementRequirement(e.target.value)} placeholder="e.g. Engaged in last 12 months — or — No requirement" />
+      </div>
+
+      <div className="field">
         <label className="label">Expected Use</label>
         <div className="expected-use-options">
           {([
@@ -156,12 +162,28 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
       {refData.suppressions.length > 0 && (
         <div className="field">
           <label className="label">Known Suppressions</label>
-          <div className="suppression-checklist">
-            {refData.suppressions.map(s => (
-              <label key={s.recordId} className="suppression-item">
-                <input type="checkbox" checked={suppressions.includes(s.recordId)} onChange={() => toggleSuppression(s.recordId)} />
-                <span>{s.name}</span>
-              </label>
+          <div className="suppression-section">
+            {refData.suppressions.filter(s => s.alwaysApply).length > 0 && (
+              <div className="suppression-group">
+                <div className="suppression-group-label">Always Applied <span className="suppression-group-note">— required on every segment</span></div>
+                {refData.suppressions.filter(s => s.alwaysApply).map(s => (
+                  <label key={s.recordId} className="suppression-item suppression-item-locked">
+                    <input type="checkbox" checked disabled />
+                    <div><span className="suppression-name">{s.name}</span></div>
+                  </label>
+                ))}
+              </div>
+            )}
+            {[...new Set(refData.suppressions.filter(s => !s.alwaysApply).map(s => s.category))].map(cat => (
+              <div key={cat} className="suppression-group">
+                <div className="suppression-group-label">{cat}</div>
+                {refData.suppressions.filter(s => !s.alwaysApply && s.category === cat).map(s => (
+                  <label key={s.recordId} className="suppression-item">
+                    <input type="checkbox" checked={suppressions.includes(s.recordId)} onChange={() => toggleSuppression(s.recordId)} />
+                    <div><span className="suppression-name">{s.name}</span></div>
+                  </label>
+                ))}
+              </div>
             ))}
           </div>
         </div>
@@ -182,8 +204,8 @@ function Layer3Form({ onSave, onCancel }: {
   const [loGroupName, setLoGroupName] = useState('');
   const [bbcrmQueryName, setBbcrmQueryName] = useState('');
   const [dataSources, setDataSources] = useState('');
-  const [refreshStrategy, setRefreshStrategy] = useState('');
-  const [refreshFrequencyDetails, setRefreshFrequencyDetails] = useState('');
+  const [refreshSchedule, setRefreshSchedule] = useState('');
+  const [refreshLogic, setRefreshLogic] = useState('');
   const [deviations, setDeviations] = useState('None');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -192,8 +214,8 @@ function Layer3Form({ onSave, onCancel }: {
       loGroupName,
       bbcrmQueryName,
       dataSources: dataSources.split('\n').map(s => s.trim()).filter(Boolean),
-      refreshStrategy,
-      refreshFrequencyDetails,
+      refreshSchedule,
+      refreshLogic,
       deviations,
       layer3CompletedDate: new Date().toISOString().split('T')[0],
     });
@@ -236,22 +258,23 @@ function Layer3Form({ onSave, onCancel }: {
       </div>
 
       <div className="field">
-        <label className="label">Refresh Strategy</label>
+        <label className="label">Refresh Schedule</label>
         <input
           className="input"
-          value={refreshStrategy}
-          onChange={e => setRefreshStrategy(e.target.value)}
-          placeholder="e.g. Daily during campaign season (Aug–Oct)"
+          value={refreshSchedule}
+          onChange={e => setRefreshSchedule(e.target.value)}
+          placeholder="e.g. Daily (weeknights 11 PM)"
         />
       </div>
 
       <div className="field">
-        <label className="label">Refresh Frequency Details</label>
-        <input
-          className="input"
-          value={refreshFrequencyDetails}
-          onChange={e => setRefreshFrequencyDetails(e.target.value)}
-          placeholder="e.g. 3–5 days build; daily refresh Aug–Oct"
+        <label className="label">Refresh Logic <span className="label-hint">— What triggers inclusion/exclusion on each refresh?</span></label>
+        <textarea
+          className="input textarea"
+          value={refreshLogic}
+          onChange={e => setRefreshLogic(e.target.value)}
+          rows={2}
+          placeholder="e.g. Nightly refresh removes newly registered participants"
         />
       </div>
 
@@ -567,6 +590,13 @@ export function SegmentDetail({
                 </div>
               )}
 
+              {layer2.engagementRequirement && (
+                <div className="detail-field">
+                  <div className="detail-label">Engagement Requirement</div>
+                  <div className="detail-value">{layer2.engagementRequirement}</div>
+                </div>
+              )}
+
               <div className="detail-field">
                 <div className="detail-label">Expected Use</div>
                 <div className="detail-value">{USE_LABEL[layer2.expectedUse] ?? layer2.expectedUse}</div>
@@ -649,12 +679,12 @@ export function SegmentDetail({
 
               <div className="detail-field-row">
                 <div className="detail-field">
-                  <div className="detail-label">Refresh Strategy</div>
-                  <div className="detail-value">{layer3.refreshStrategy || '—'}</div>
+                  <div className="detail-label">Refresh Schedule</div>
+                  <div className="detail-value">{layer3.refreshSchedule || '—'}</div>
                 </div>
                 <div className="detail-field">
-                  <div className="detail-label">Refresh Frequency Details</div>
-                  <div className="detail-value">{layer3.refreshFrequencyDetails || '—'}</div>
+                  <div className="detail-label">Refresh Logic</div>
+                  <div className="detail-value">{layer3.refreshLogic || '—'}</div>
                 </div>
               </div>
 

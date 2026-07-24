@@ -63,22 +63,50 @@ function SuppressionChecklist({ selected, onChange, suppressions, loading }: {
   if (suppressions.length === 0) {
     return (
       <p className="muted small">
-        No suppressions found in Airtable — add them to the Suppressions table to see them here.
+        No suppressions found — add rows to the Suppressions table in Airtable to see them here.
       </p>
     );
   }
 
+  const alwaysOn = suppressions.filter(s => s.alwaysApply);
+  const optional = suppressions.filter(s => !s.alwaysApply);
+
+  // Group optional by category
+  const categories = [...new Set(optional.map(s => s.category))];
+
   return (
-    <div className="suppression-checklist">
-      {suppressions.map(s => (
-        <label key={s.recordId} className="suppression-item">
-          <input
-            type="checkbox"
-            checked={selected.includes(s.recordId)}
-            onChange={() => toggle(s.recordId)}
-          />
-          <span>{s.name}</span>
-        </label>
+    <div className="suppression-section">
+      {alwaysOn.length > 0 && (
+        <div className="suppression-group">
+          <div className="suppression-group-label">Always Applied <span className="suppression-group-note">— required on every segment</span></div>
+          {alwaysOn.map(s => (
+            <label key={s.recordId} className="suppression-item suppression-item-locked">
+              <input type="checkbox" checked disabled />
+              <div>
+                <span className="suppression-name">{s.name}</span>
+                {s.description && <span className="suppression-desc">{s.description}</span>}
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
+      {categories.map(cat => (
+        <div key={cat} className="suppression-group">
+          <div className="suppression-group-label">{cat}</div>
+          {optional.filter(s => s.category === cat).map(s => (
+            <label key={s.recordId} className="suppression-item">
+              <input
+                type="checkbox"
+                checked={selected.includes(s.recordId)}
+                onChange={() => toggle(s.recordId)}
+              />
+              <div>
+                <span className="suppression-name">{s.name}</span>
+                {s.description && <span className="suppression-desc">{s.description}</span>}
+              </div>
+            </label>
+          ))}
+        </div>
       ))}
     </div>
   );
@@ -92,6 +120,7 @@ export function NewSegment({ onAdd, refData }: Props) {
   const [approver, setApprover] = useState('');
   const [businessGoal, setBusinessGoal] = useState('');
   const [campaignIntent, setCampaignIntent] = useState('');
+  const [engagementRequirement, setEngagementRequirement] = useState('');
   const [inclusions, setInclusions] = useState<string[]>([]);
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [suppressions, setSuppressions] = useState<string[]>([]);
@@ -123,6 +152,7 @@ export function NewSegment({ onAdd, refData }: Props) {
       layer2: {
         businessGoal: businessGoal.trim(),
         campaignIntent: campaignIntent.trim(),
+        engagementRequirement: engagementRequirement.trim(),
         inclusions,
         exclusions,
         suppressions,
@@ -248,6 +278,16 @@ export function NewSegment({ onAdd, refData }: Props) {
               value={campaignIntent}
               onChange={e => setCampaignIntent(e.target.value)}
               placeholder="e.g. CFS 2027 Registration Campaign"
+            />
+          </div>
+
+          <div className="field">
+            <label className="label">Engagement Requirement <span className="label-hint">— Any minimum engagement threshold to qualify?</span></label>
+            <input
+              className="input"
+              value={engagementRequirement}
+              onChange={e => setEngagementRequirement(e.target.value)}
+              placeholder="e.g. Engaged in last 12 months — or — No requirement"
             />
           </div>
 

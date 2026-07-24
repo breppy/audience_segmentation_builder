@@ -469,25 +469,44 @@
 .expected-use-desc { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
 
 /* ─────────────── Suppression checklist ─────────────── */
-.suppression-checklist {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem .75rem;
-  padding: .5rem 0;
+.suppression-section { display: flex; flex-direction: column; gap: .75rem; }
+.suppression-group { display: flex; flex-direction: column; gap: .35rem; }
+.suppression-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-secondary);
+  padding-bottom: .2rem;
+  border-bottom: 1px solid var(--border-light);
 }
+.suppression-group-note { font-weight: 400; text-transform: none; letter-spacing: 0; }
 .suppression-item {
   display: flex;
-  align-items: center;
-  gap: .4rem;
+  align-items: flex-start;
+  gap: .5rem;
   cursor: pointer;
   font-size: 13px;
   color: var(--text);
+  padding: .2rem 0;
 }
+.suppression-item-locked { opacity: .65; cursor: default; }
 .suppression-item input[type="checkbox"] {
   width: 15px;
   height: 15px;
+  margin-top: 2px;
   accent-color: var(--primary);
   cursor: pointer;
+  flex-shrink: 0;
+}
+.suppression-item-locked input[type="checkbox"] { cursor: default; }
+.suppression-name { font-weight: 500; display: block; }
+.suppression-desc {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+  line-height: 1.4;
 }
 
 /* ─────────────── Alert banner ─────────────── */

@@ -14,18 +14,19 @@ export type WorkflowStage = 1 | 2 | 3 | 4 | 5;
 export interface Layer2Definition {
   businessGoal: string;
   campaignIntent: string;
+  engagementRequirement: string;
   inclusions: string[];
   exclusions: string[];
-  suppressions: string[]; // Airtable Suppressions record IDs
+  suppressions: string[]; // Airtable Known Suppressions record IDs
   expectedUse: ExpectedUse;
 }
 
 export interface Layer3Technical {
   loGroupName: string;
   bbcrmQueryName: string;
-  dataSources: string[];
-  refreshStrategy: string;
-  refreshFrequencyDetails: string;
+  dataSources: string[];     // syncs to Airtable "Suppressions" column
+  refreshSchedule: string;   // was refreshStrategy → Airtable "Refresh Schedule"
+  refreshLogic: string;      // was refreshFrequencyDetails → Airtable "Refresh Logic"
   deviations: string;
   layer3CompletedDate: string;
 }
@@ -80,5 +81,10 @@ export interface AirtableUser {
 
 export interface AirtableSuppression {
   recordId: string;
+  suppressionId: string;
   name: string;
+  category: string;
+  description: string;
+  alwaysApply: boolean;
+  appliesTo: string[];
 }

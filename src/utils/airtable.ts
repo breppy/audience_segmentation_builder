@@ -61,10 +61,20 @@ export async function fetchUsers(): Promise<AirtableUser[]> {
 
 export async function fetchSuppressions(): Promise<AirtableSuppression[]> {
   const records = await fetchAll<Record<string, unknown>>('Suppressions');
-  return records.map(r => ({
-    recordId: r.id,
-    name: String(r.fields['Name'] ?? r.fields['Suppression Name'] ?? ''),
-  }));
+  return records.map(r => {
+    const appliesTo = r.fields['Applies To'];
+    return {
+      recordId: r.id,
+      suppressionId: String(r.fields['Suppression ID'] ?? ''),
+      name: String(r.fields['Suppression Name'] ?? r.fields['Name'] ?? ''),
+      category: String(r.fields['Category'] ?? 'Other'),
+      description: String(r.fields['Description'] ?? ''),
+      alwaysApply: r.fields['Always Apply'] === true || r.fields['Always Apply'] === 'checked',
+      appliesTo: typeof appliesTo === 'string'
+        ? appliesTo.split(',').map(s => s.trim())
+        : Array.isArray(appliesTo) ? appliesTo as string[] : [],
+    };
+  });
 }
 
 // ── Segment sync ─────────────────────────────────────────────────────────────
@@ -75,34 +85,38 @@ function segmentToFields(segment: Segment): Record<string, unknown> {
     'Segment Name': segment.name,
     'Status': statusLabel(segment.status),
     'Notes': segment.notes || undefined,
-    'Campaign Intent': layer2.campaignIntent || undefined,
     'Business Goal': layer2.businessGoal || undefined,
+    'Engagement Requirement': layer2.engagementRequirement || undefined,
     'Inclusions': layer2.inclusions.join('\n') || undefined,
-    'Exclusions': layer2.exclusions.join('\n') || undefined,
     'Business Owner': segment.owner || undefined,
     'Approver': segment.approver || undefined,
     'Assignee': segment.owner || undefined,
   };
 
+  // Known Suppressions = linked records from Suppressions table
   if (layer2.suppressions.length) {
-    fields['Suppressions'] = layer2.suppressions;
+    fields['Known Suppressions'] = layer2.suppressions;
   }
 
   if (layer3) {
     fields['LO Group Name'] = layer3.loGroupName || undefined;
     fields['BBCRM Query Name'] = layer3.bbcrmQueryName || undefined;
-    fields['Data Sources'] = layer3.dataSources.join('\n') || undefined;
-    fields['Refresh Strategy'] = layer3.refreshStrategy || undefined;
-    fields['Refresh Frequency Details'] = layer3.refreshFrequencyDetails || undefined;
-    fields['Deviations from Layer 2'] = layer3.deviations || undefined;
-    fields['Technical Build'] = [layer3.loGroupName, layer3.bbcrmQueryName].filter(Boolean).join(' / ') || undefined;
+    // "Suppressions" column in Segment Library stores data sources
+    fields['Suppressions'] = layer3.dataSources.join('\n') || undefined;
+    fields['Refresh Schedule'] = layer3.refreshSchedule || undefined;
+    fields['Refresh Logic'] = layer3.refreshLogic || undefined;
+    fields['Technical Details'] = [layer3.loGroupName, layer3.bbcrmQueryName]
+      .filter(Boolean).join(' / ') || undefined;
+    if (layer3.deviations && layer3.deviations !== 'None') {
+      fields['Notes'] = [segment.notes, `Deviations: ${layer3.deviations}`]
+        .filter(Boolean).join('\n\n');
+    }
   }
 
   if (segment.dateLocked) {
     fields['Date Locked'] = segment.dateLocked;
   }
 
-  // Strip undefined values — Airtable rejects them
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
 }
 
@@ -142,9 +156,9 @@ export async function updateSegmentRecord(airtableId: string, segment: Segment):
 function usageToFields(segmentAirtableId: string, usage: CampaignUsage): Record<string, unknown> {
   const fields: Record<string, unknown> = {
     'Campaign Name': usage.campaignName,
-    'Segment ID': [segmentAirtableId],
+    'Segment Library': [segmentAirtableId], // linked record
     'Send Date': usage.sendDate || undefined,
-    'Channel': usage.channel ? usage.channel.toUpperCase() : undefined,
+    'Channel': usage.channel ? capitalize(usage.channel) : undefined,
     'Intended Segment Size': usage.intendedSegmentSize || undefined,
     'Campaign Goal': usage.campaignGoal || undefined,
     'Campaign Owner': usage.campaignOwner || undefined,
@@ -152,6 +166,10 @@ function usageToFields(segmentAirtableId: string, usage: CampaignUsage): Record<
     'Notes': usage.notes || undefined,
   };
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+}
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export async function createCampaignUsageRecord(segmentAirtableId: string, usage: CampaignUsage): Promise<string> {
