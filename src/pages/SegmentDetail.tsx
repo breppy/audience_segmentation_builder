@@ -126,11 +126,21 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
 
       <div className="field">
         <label className="label">Expected Use</label>
-        <select className="input select" value={expectedUse} onChange={e => setExpectedUse(e.target.value as ExpectedUse)}>
-          <option value="multiple_campaigns">Multiple Campaigns</option>
-          <option value="one_time">One-Time Use</option>
-          <option value="seasonal">Seasonal</option>
-        </select>
+        <div className="expected-use-options">
+          {([
+            { value: 'multiple_campaigns', label: 'Multiple Campaigns', desc: 'Reused across several campaigns — built once, refreshed as needed.' },
+            { value: 'one_time', label: 'One-Time Use', desc: 'Built for a single send, then retired.' },
+            { value: 'seasonal', label: 'Seasonal', desc: 'Activated on a recurring cycle and dormant in between.' },
+          ] as const).map(opt => (
+            <label key={opt.value} className={`expected-use-option ${expectedUse === opt.value ? 'selected' : ''}`}>
+              <input type="radio" name="expectedUseEdit" value={opt.value} checked={expectedUse === opt.value} onChange={() => setExpectedUse(opt.value)} />
+              <div>
+                <div className="expected-use-label">{opt.label}</div>
+                <div className="expected-use-desc">{opt.desc}</div>
+              </div>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="field">

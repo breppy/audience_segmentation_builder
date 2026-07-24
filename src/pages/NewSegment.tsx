@@ -251,18 +251,40 @@ export function NewSegment({ onAdd, refData }: Props) {
             />
           </div>
 
-          <div className="field-row" style={{ alignItems: 'flex-start' }}>
-            <div className="field" style={{ flex: 1 }}>
-              <label className="label">Expected Use</label>
-              <select
-                className="input select"
-                value={expectedUse}
-                onChange={e => setExpectedUse(e.target.value as ExpectedUse)}
-              >
-                <option value="multiple_campaigns">Multiple Campaigns</option>
-                <option value="one_time">One-Time Use</option>
-                <option value="seasonal">Seasonal</option>
-              </select>
+          <div className="field">
+            <label className="label">Expected Use</label>
+            <div className="expected-use-options">
+              {([
+                {
+                  value: 'multiple_campaigns',
+                  label: 'Multiple Campaigns',
+                  desc: 'This segment will be reused across several campaigns over time — built once, refreshed as needed.',
+                },
+                {
+                  value: 'one_time',
+                  label: 'One-Time Use',
+                  desc: 'Built for a single specific send, then retired. No ongoing refresh needed.',
+                },
+                {
+                  value: 'seasonal',
+                  label: 'Seasonal',
+                  desc: 'Activated on a recurring cycle (e.g. every fall or each fiscal year) and dormant in between.',
+                },
+              ] as const).map(opt => (
+                <label key={opt.value} className={`expected-use-option ${expectedUse === opt.value ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="expectedUse"
+                    value={opt.value}
+                    checked={expectedUse === opt.value}
+                    onChange={() => setExpectedUse(opt.value)}
+                  />
+                  <div>
+                    <div className="expected-use-label">{opt.label}</div>
+                    <div className="expected-use-desc">{opt.desc}</div>
+                  </div>
+                </label>
+              ))}
             </div>
           </div>
 
