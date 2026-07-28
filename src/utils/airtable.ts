@@ -118,11 +118,12 @@ function segmentToFields(segment: Segment): Record<string, unknown> {
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
 }
 
-// Minimal safe fields — used as fallback if full write fails
+// Minimal safe fields — used as fallback if full write fails.
+// Intentionally omits Status (a Select field whose options may not match) and
+// any linked-record columns so this payload always succeeds.
 function segmentToMinimalFields(segment: Segment): Record<string, unknown> {
   return {
     'Segment Name': segment.name,
-    'Status': statusLabel(segment.status),
     ...(segment.notes ? { 'Notes': segment.notes } : {}),
     ...(segment.layer2.businessGoal ? { 'Business Goal': segment.layer2.businessGoal } : {}),
   };
@@ -153,7 +154,7 @@ export async function createSegmentRecord(segment: Segment): Promise<string> {
   } catch (err) {
     // Retry with minimal fields in case some columns are typed fields (linked records, etc.)
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('422') || msg.includes('400') || msg.includes('UNKNOWN_FIELD_NAME') || msg.includes('INVALID_VALUE_FOR_COLUMN')) {
+    if (msg.includes('422') || msg.includes('400') || msg.includes('UNKNOWN_FIELD_NAME') || msg.includes('INVALID_VALUE_FOR_COLUMN') || msg.includes('INVALID_MULTIPLE_CHOICE_OPTIONS')) {
       const result = await request<AirtableRecord<unknown>>(table, {
         method: 'POST',
         body: JSON.stringify({ fields: segmentToMinimalFields(segment) }),
@@ -173,7 +174,7 @@ export async function updateSegmentRecord(airtableId: string, segment: Segment):
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('422') || msg.includes('400') || msg.includes('UNKNOWN_FIELD_NAME') || msg.includes('INVALID_VALUE_FOR_COLUMN')) {
+    if (msg.includes('422') || msg.includes('400') || msg.includes('UNKNOWN_FIELD_NAME') || msg.includes('INVALID_VALUE_FOR_COLUMN') || msg.includes('INVALID_MULTIPLE_CHOICE_OPTIONS')) {
       await request(path, {
         method: 'PATCH',
         body: JSON.stringify({ fields: segmentToMinimalFields(segment) }),
