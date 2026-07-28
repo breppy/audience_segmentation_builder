@@ -10,6 +10,7 @@ import './App.css';
 export default function App() {
   const {
     segments,
+    syncError,
     addSegment,
     updateLayer2,
     deleteSegment,
@@ -28,6 +29,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <Layout>
+        {syncError && (
+          <div className="alert alert-warning" style={{ margin: '0.75rem 1.5rem 0' }}>
+            <strong>Airtable sync failed</strong> — your segment was saved locally but could not be written to Airtable.{' '}
+            <span className="muted small">{syncError}</span>
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<Dashboard segments={segments} />} />
           <Route path="/new" element={<NewSegment onAdd={addSegment} refData={refData} />} />

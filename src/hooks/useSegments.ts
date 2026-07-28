@@ -10,6 +10,7 @@ import {
 
 export function useSegments() {
   const [segments, setSegments] = useState<Segment[]>(() => loadSegments());
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const persist = useCallback((updated: Segment[]) => {
     setSegments(updated);
@@ -20,15 +21,20 @@ export function useSegments() {
   const syncToAirtable = useCallback(async (segment: Segment) => {
     if (!airtableEnabled) return segment;
     try {
+      let synced: Segment;
       if (segment.airtableId) {
         await updateSegmentRecord(segment.airtableId, segment);
-        return segment;
+        synced = segment;
       } else {
         const airtableId = await createSegmentRecord(segment);
-        return { ...segment, airtableId };
+        synced = { ...segment, airtableId };
       }
+      setSyncError(null);
+      return synced;
     } catch (err) {
-      console.warn('Airtable sync failed (local save succeeded):', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('Airtable sync failed (local save succeeded):', msg);
+      setSyncError(msg);
       return segment;
     }
   }, []);
@@ -136,6 +142,7 @@ export function useSegments() {
 
   return {
     segments,
+    syncError,
     addSegment,
     updateSegment,
     updateLayer2,

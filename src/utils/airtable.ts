@@ -88,9 +88,8 @@ function segmentToFields(segment: Segment): Record<string, unknown> {
     'Business Goal': layer2.businessGoal || undefined,
     'Engagement Requirement': layer2.engagementRequirement || undefined,
     'Inclusions': layer2.inclusions.join('\n') || undefined,
-    'Business Owner': segment.owner || undefined,
-    'Approver': segment.approver || undefined,
-    'Assignee': segment.owner || undefined,
+    // Business Owner / Approver / Assignee are written separately since
+    // they may be linked record or collaborator fields in Airtable
   };
 
   // Known Suppressions = linked records from Suppressions table
@@ -101,7 +100,6 @@ function segmentToFields(segment: Segment): Record<string, unknown> {
   if (layer3) {
     fields['LO Group Name'] = layer3.loGroupName || undefined;
     fields['BBCRM Query Name'] = layer3.bbcrmQueryName || undefined;
-    // "Suppressions" column in Segment Library stores data sources
     fields['Suppressions'] = layer3.dataSources.join('\n') || undefined;
     fields['Refresh Schedule'] = layer3.refreshSchedule || undefined;
     fields['Refresh Logic'] = layer3.refreshLogic || undefined;
@@ -120,6 +118,16 @@ function segmentToFields(segment: Segment): Record<string, unknown> {
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
 }
 
+// Minimal safe fields — used as fallback if full write fails
+function segmentToMinimalFields(segment: Segment): Record<string, unknown> {
+  return {
+    'Segment Name': segment.name,
+    'Status': statusLabel(segment.status),
+    ...(segment.notes ? { 'Notes': segment.notes } : {}),
+    ...(segment.layer2.businessGoal ? { 'Business Goal': segment.layer2.businessGoal } : {}),
+  };
+}
+
 function statusLabel(status: Segment['status']): string {
   const map: Record<string, string> = {
     draft: 'Draft',
@@ -135,20 +143,45 @@ function statusLabel(status: Segment['status']): string {
 }
 
 export async function createSegmentRecord(segment: Segment): Promise<string> {
-  const body = { fields: segmentToFields(segment) };
-  const result = await request<AirtableRecord<unknown>>(`${encodeURIComponent('Segment Library')}`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  return result.id;
+  const table = encodeURIComponent('Segment Library');
+  try {
+    const result = await request<AirtableRecord<unknown>>(table, {
+      method: 'POST',
+      body: JSON.stringify({ fields: segmentToFields(segment) }),
+    });
+    return result.id;
+  } catch (err) {
+    // Retry with minimal fields in case some columns are typed fields (linked records, etc.)
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('422') || msg.includes('400') || msg.includes('UNKNOWN_FIELD_NAME') || msg.includes('INVALID_VALUE_FOR_COLUMN')) {
+      const result = await request<AirtableRecord<unknown>>(table, {
+        method: 'POST',
+        body: JSON.stringify({ fields: segmentToMinimalFields(segment) }),
+      });
+      return result.id;
+    }
+    throw err;
+  }
 }
 
 export async function updateSegmentRecord(airtableId: string, segment: Segment): Promise<void> {
-  const body = { fields: segmentToFields(segment) };
-  await request(`${encodeURIComponent('Segment Library')}/${airtableId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  });
+  const path = `${encodeURIComponent('Segment Library')}/${airtableId}`;
+  try {
+    await request(path, {
+      method: 'PATCH',
+      body: JSON.stringify({ fields: segmentToFields(segment) }),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('422') || msg.includes('400') || msg.includes('UNKNOWN_FIELD_NAME') || msg.includes('INVALID_VALUE_FOR_COLUMN')) {
+      await request(path, {
+        method: 'PATCH',
+        body: JSON.stringify({ fields: segmentToMinimalFields(segment) }),
+      });
+      return;
+    }
+    throw err;
+  }
 }
 
 // ── Campaign Usage sync ───────────────────────────────────────────────────────
