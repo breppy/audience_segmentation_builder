@@ -120,8 +120,10 @@ function ReviewPanel({ flags, onFlagsChange, summary, onSubmit, onBack }: {
   onSubmit: () => void;
   onBack: () => void;
 }) {
-  const resolve = (id: string, resolution: FlagResolution | null, answer = '') => {
-    onFlagsChange(flags.map(f => f.id === id ? { ...f, resolution, answer } : f));
+  // Collapse to chip view only when user explicitly picks unknown or ignored.
+  // While typing an answer the textarea stays visible — don't switch views mid-edit.
+  const resolve = (id: string, resolution: FlagResolution | null) => {
+    onFlagsChange(flags.map(f => f.id === id ? { ...f, resolution, answer: resolution === null ? '' : f.answer } : f));
   };
 
   const updateAnswer = (id: string, answer: string) => {
@@ -163,8 +165,12 @@ function ReviewPanel({ flags, onFlagsChange, summary, onSubmit, onBack }: {
           <div key={f.id} className={"review-flag " + (f.resolution ? "flag-" + f.resolution : 'flag-open')}>
             <div className="review-flag-q">{f.question}</div>
 
-            {f.resolution === null && (
+            {/* Textarea stays open for null and answered — only collapses for unknown/ignored */}
+            {(f.resolution === null || f.resolution === 'answered') && (
               <div className="review-flag-body">
+                {f.resolution === 'answered' && (
+                  <span className="flag-resolution-chip chip-answered" style={{ marginBottom: '.35rem', display: 'inline-block' }}>Answered</span>
+                )}
                 <textarea
                   className="input textarea review-flag-textarea"
                   placeholder={f.hint}
@@ -185,26 +191,18 @@ function ReviewPanel({ flags, onFlagsChange, summary, onSubmit, onBack }: {
               </div>
             )}
 
-            {f.resolution === 'answered' && (
-              <div className="review-flag-resolved">
-                <span className="flag-resolution-chip chip-answered">Answered</span>
-                <p className="review-flag-answer">{f.answer}</p>
-                <button type="button" className="review-flag-edit" onClick={() => resolve(f.id, null, '')}>Edit</button>
-              </div>
-            )}
-
             {f.resolution === 'unknown' && (
               <div className="review-flag-resolved">
                 <span className="flag-resolution-chip chip-unknown">Currently Unknown</span>
                 <p className="muted small">This will be visible to the approver as an open question.</p>
-                <button type="button" className="review-flag-edit" onClick={() => resolve(f.id, null, '')}>Change</button>
+                <button type="button" className="review-flag-edit" onClick={() => resolve(f.id, null)}>Change</button>
               </div>
             )}
 
             {f.resolution === 'ignored' && (
               <div className="review-flag-resolved">
                 <span className="flag-resolution-chip chip-ignored">Not applicable</span>
-                <button type="button" className="review-flag-edit" onClick={() => resolve(f.id, null, '')}>Change</button>
+                <button type="button" className="review-flag-edit" onClick={() => resolve(f.id, null)}>Change</button>
               </div>
             )}
           </div>
