@@ -18,7 +18,7 @@ export const PURPOSE_LABEL: Record<SegmentPurpose, string> = {
   reporting: 'Reporting Only',
 };
 
-// Matches the exact values in Airtable's "Applies To" multi-select
+// Matches the exact values in Airtable's "Applies To" and "Required For" multi-selects
 const PURPOSE_AIRTABLE_LABEL: Record<SegmentPurpose, string> = {
   email: 'Email',
   sms: 'SMS',
@@ -28,9 +28,6 @@ const PURPOSE_AIRTABLE_LABEL: Record<SegmentPurpose, string> = {
   reporting: 'Reporting',
 };
 
-// Communication channels enforce opt-out suppressions
-const COMM_PURPOSES = new Set<SegmentPurpose>(['email', 'sms', 'direct_mail', 'paid', 'export']);
-
 export type SuppressionBehavior = 'always' | 'required' | 'suggested' | 'optional';
 
 export function getSuppressionBehavior(
@@ -38,14 +35,17 @@ export function getSuppressionBehavior(
   purposes: SegmentPurpose[],
 ): SuppressionBehavior {
   if (s.alwaysApply) return 'always';
-  if (purposes.length === 0 || s.appliesTo.length === 0) return 'optional';
+  if (purposes.length === 0) return 'optional';
 
-  const matchingPurposes = purposes.filter(p =>
-    s.appliesTo.includes(PURPOSE_AIRTABLE_LABEL[p]),
-  );
-  if (matchingPurposes.length === 0) return 'optional';
-  if (matchingPurposes.some(p => COMM_PURPOSES.has(p))) return 'required';
-  return 'suggested';
+  const labels = purposes.map(p => PURPOSE_AIRTABLE_LABEL[p]);
+
+  // "Required For" = locked on for these purposes
+  if (s.requiredFor?.some(v => labels.includes(v))) return 'required';
+
+  // "Applies To" = default-on but editable for these purposes
+  if (s.appliesTo?.some(v => labels.includes(v))) return 'suggested';
+
+  return 'optional';
 }
 
 export function getAutoAppliedIds(

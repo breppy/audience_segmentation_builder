@@ -86,5 +86,6 @@ export interface AirtableSuppression {
   category: string;
   description: string;
   alwaysApply: boolean;
-  appliesTo: string[];
+  appliesTo: string[];   // purposes where this is Default: On (optional, pre-checked)
+  requiredFor: string[]; // purposes where this is Required (locked)
 }

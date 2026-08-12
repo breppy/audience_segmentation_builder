@@ -519,7 +519,7 @@
   flex-shrink: 0;
 }
 .suppression-item-locked input[type="checkbox"] { cursor: default; }
-.suppression-name { font-weight: 500; display: block; }
+.suppression-name { font-weight: 500; }
 .suppression-desc {
   display: block;
   font-size: 11px;

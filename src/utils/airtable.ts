@@ -63,7 +63,11 @@ export async function fetchUsers(): Promise<AirtableUser[]> {
 export async function fetchSuppressions(): Promise<AirtableSuppression[]> {
   const records = await fetchAll<Record<string, unknown>>('Suppressions');
   return records.map(r => {
-    const appliesTo = r.fields['Applies To'];
+    const toArray = (v: unknown): string[] => {
+      if (typeof v === 'string') return v.split(',').map(s => s.trim()).filter(Boolean);
+      if (Array.isArray(v)) return v as string[];
+      return [];
+    };
     return {
       recordId: r.id,
       suppressionId: String(r.fields['Suppression ID'] ?? ''),
@@ -71,9 +75,8 @@ export async function fetchSuppressions(): Promise<AirtableSuppression[]> {
       category: String(r.fields['Category'] ?? 'Other'),
       description: String(r.fields['Description'] ?? ''),
       alwaysApply: r.fields['Always Apply'] === true || r.fields['Always Apply'] === 'checked',
-      appliesTo: typeof appliesTo === 'string'
-        ? appliesTo.split(',').map(s => s.trim())
-        : Array.isArray(appliesTo) ? appliesTo as string[] : [],
+      appliesTo: toArray(r.fields['Applies To']),
+      requiredFor: toArray(r.fields['Required For']),
     };
   });
 }
