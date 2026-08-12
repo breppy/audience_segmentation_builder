@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import type { Segment, Channel, Layer2Definition, Layer3Technical, CampaignUsage, ExpectedUse } from '../types';
+import type { Segment, Channel, Layer2Definition, Layer3Technical, CampaignUsage, SegmentPurpose } from '../types';
 import type { AirtableRefData } from '../hooks/useAirtableRef';
 import { StatusBadge } from '../components/StatusBadge';
 import { StageTracker } from '../components/StageTracker';
+import { PURPOSE_OPTIONS, PURPOSE_LABEL, getSuppressionBehavior, getAutoAppliedIds } from '../utils/purposes';
 
 interface Props {
   segments: Segment[];
@@ -66,15 +67,29 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
   const [inclusions, setInclusions] = useState(segment.layer2.inclusions);
   const [exclusions, setExclusions] = useState(segment.layer2.exclusions);
   const [suppressions, setSuppressions] = useState(segment.layer2.suppressions);
-  const [expectedUse, setExpectedUse] = useState<ExpectedUse>(segment.layer2.expectedUse);
+  const [purposes, setPurposes] = useState<SegmentPurpose[]>(segment.layer2.purposes ?? []);
 
-  const toggleSuppression = (id: string) =>
+  // Auto-apply suppressions when purposes change
+  useEffect(() => {
+    const autoIds = getAutoAppliedIds(refData.suppressions, purposes);
+    setSuppressions(prev => {
+      const toAdd = autoIds.filter(id => !prev.includes(id));
+      return toAdd.length ? [...prev, ...toAdd] : prev;
+    });
+  }, [purposes, refData.suppressions]);
+
+  const togglePurpose = (p: SegmentPurpose) =>
+    setPurposes(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+
+  const toggleSuppression = (id: string, behavior: string) => {
+    if (behavior === 'always' || behavior === 'required') return;
     setSuppressions(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(
-      { businessGoal, campaignIntent, engagementRequirement, inclusions, exclusions, suppressions, expectedUse },
+      { businessGoal, campaignIntent, engagementRequirement, inclusions, exclusions, suppressions, purposes },
       { name, owner, approver },
     );
   };
@@ -131,18 +146,14 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
       </div>
 
       <div className="field">
-        <label className="label">Expected Use</label>
-        <div className="expected-use-options">
-          {([
-            { value: 'multiple_campaigns', label: 'Multiple Campaigns', desc: 'Reused across several campaigns — built once, refreshed as needed.' },
-            { value: 'one_time', label: 'One-Time Use', desc: 'Built for a single send, then retired.' },
-            { value: 'seasonal', label: 'Seasonal', desc: 'Activated on a recurring cycle and dormant in between.' },
-          ] as const).map(opt => (
-            <label key={opt.value} className={`expected-use-option ${expectedUse === opt.value ? 'selected' : ''}`}>
-              <input type="radio" name="expectedUseEdit" value={opt.value} checked={expectedUse === opt.value} onChange={() => setExpectedUse(opt.value)} />
+        <label className="label">Segment Purpose <span className="label-hint">— How will this segment be used?</span></label>
+        <div className="purpose-options">
+          {PURPOSE_OPTIONS.map(opt => (
+            <label key={opt.value} className={`purpose-option ${purposes.includes(opt.value) ? 'selected' : ''}`}>
+              <input type="checkbox" checked={purposes.includes(opt.value)} onChange={() => togglePurpose(opt.value)} />
               <div>
-                <div className="expected-use-label">{opt.label}</div>
-                <div className="expected-use-desc">{opt.desc}</div>
+                <div className="purpose-label">{opt.label}</div>
+                <div className="purpose-desc">{opt.desc}</div>
               </div>
             </label>
           ))}
@@ -161,7 +172,7 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
 
       {refData.suppressions.length > 0 && (
         <div className="field">
-          <label className="label">Known Suppressions</label>
+          <label className="label">Suppressions <span className="label-hint">— Required lists update based on segment purpose</span></label>
           <div className="suppression-section">
             {refData.suppressions.filter(s => s.alwaysApply).length > 0 && (
               <div className="suppression-group">
@@ -177,12 +188,21 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
             {[...new Set(refData.suppressions.filter(s => !s.alwaysApply).map(s => s.category))].map(cat => (
               <div key={cat} className="suppression-group">
                 <div className="suppression-group-label">{cat}</div>
-                {refData.suppressions.filter(s => !s.alwaysApply && s.category === cat).map(s => (
-                  <label key={s.recordId} className="suppression-item">
-                    <input type="checkbox" checked={suppressions.includes(s.recordId)} onChange={() => toggleSuppression(s.recordId)} />
-                    <div><span className="suppression-name">{s.name}</span></div>
-                  </label>
-                ))}
+                {refData.suppressions.filter(s => !s.alwaysApply && s.category === cat).map(s => {
+                  const behavior = getSuppressionBehavior(s, purposes);
+                  const isLocked = behavior === 'always' || behavior === 'required';
+                  const isChecked = isLocked || suppressions.includes(s.recordId);
+                  return (
+                    <label key={s.recordId} className={`suppression-item ${isLocked ? 'suppression-item-locked' : ''} ${behavior === 'suggested' ? 'suppression-item-suggested' : ''}`}>
+                      <input type="checkbox" checked={isChecked} disabled={isLocked} onChange={() => toggleSuppression(s.recordId, behavior)} />
+                      <div>
+                        <span className="suppression-name">{s.name}</span>
+                        {behavior === 'required' && <span className="suppression-behavior-badge badge-required">Required for selected purpose</span>}
+                        {behavior === 'suggested' && <span className="suppression-behavior-badge badge-suggested">Recommended for selected purpose</span>}
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -442,11 +462,6 @@ function CampaignUsageForm({ onSave, onCancel, refData }: {
   );
 }
 
-const USE_LABEL: Record<string, string> = {
-  multiple_campaigns: 'Multiple Campaigns',
-  one_time: 'One-Time',
-  seasonal: 'Seasonal',
-};
 const CHANNEL_LABEL: Record<string, string> = {
   email: 'Email', sms: 'SMS', paid: 'Paid', mail: 'Mail',
 };
@@ -597,10 +612,16 @@ export function SegmentDetail({
                 </div>
               )}
 
-              <div className="detail-field">
-                <div className="detail-label">Expected Use</div>
-                <div className="detail-value">{USE_LABEL[layer2.expectedUse] ?? layer2.expectedUse}</div>
-              </div>
+              {layer2.purposes && layer2.purposes.length > 0 && (
+                <div className="detail-field">
+                  <div className="detail-label">Segment Purpose</div>
+                  <div className="detail-value purpose-tags">
+                    {layer2.purposes.map(p => (
+                      <span key={p} className="purpose-tag">{PURPOSE_LABEL[p]}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="detail-field">
                 <div className="detail-label">Inclusion Criteria</div>

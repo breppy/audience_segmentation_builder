@@ -1,4 +1,5 @@
 import type { Segment, CampaignUsage, AirtableUser, AirtableSuppression } from '../types';
+import { PURPOSE_LABEL } from './purposes';
 
 const BASE_ID = import.meta.env.VITE_AIRTABLE_BASE_ID as string;
 const TOKEN = import.meta.env.VITE_AIRTABLE_TOKEN as string;
@@ -86,6 +87,9 @@ function segmentToFields(segment: Segment): Record<string, unknown> {
     'Status': statusLabel(segment.status),
     'Notes': segment.notes || undefined,
     'Business Goal': layer2.businessGoal || undefined,
+    'Segment Purpose': layer2.purposes?.length
+      ? layer2.purposes.map(p => PURPOSE_LABEL[p]).join(', ')
+      : undefined,
     'Engagement Requirement': layer2.engagementRequirement || undefined,
     'Inclusions': layer2.inclusions.join('\n') || undefined,
     // Business Owner / Approver / Assignee are written separately since

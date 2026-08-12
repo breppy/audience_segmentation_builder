@@ -2,10 +2,20 @@ import type { Segment } from '../types';
 
 const STORAGE_KEY = 'audience_segments';
 
+function migrate(raw: unknown): Segment {
+  const s = raw as Segment & { layer2: Record<string, unknown> };
+  if (!Array.isArray(s.layer2.purposes)) {
+    s.layer2 = { ...s.layer2, purposes: [] };
+  }
+  return s as Segment;
+}
+
 export function loadSegments(): Segment[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed: unknown[] = JSON.parse(raw);
+    return parsed.map(migrate);
   } catch {
     return [];
   }

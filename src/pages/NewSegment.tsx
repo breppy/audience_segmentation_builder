@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Segment, ExpectedUse } from '../types';
+import type { Segment, SegmentPurpose } from '../types';
 import type { AirtableRefData } from '../hooks/useAirtableRef';
+import type { AirtableSuppression } from '../types';
 import { generateId, generateSegmentId } from '../utils/storage';
+import {
+  PURPOSE_OPTIONS,
+  getSuppressionBehavior,
+  getAutoAppliedIds,
+} from '../utils/purposes';
 
 interface Props {
   onAdd: (segment: Segment) => void;
@@ -48,13 +54,15 @@ function TagInput({ values, onChange, placeholder }: {
   );
 }
 
-function SuppressionChecklist({ selected, onChange, suppressions, loading }: {
+function SuppressionChecklist({ selected, onChange, suppressions, loading, purposes }: {
   selected: string[];
   onChange: (ids: string[]) => void;
-  suppressions: AirtableRefData['suppressions'];
+  suppressions: AirtableSuppression[];
   loading: boolean;
+  purposes: SegmentPurpose[];
 }) {
-  const toggle = (id: string) => {
+  const toggle = (id: string, behavior: string) => {
+    if (behavior === 'always' || behavior === 'required') return;
     onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
   };
 
@@ -68,18 +76,16 @@ function SuppressionChecklist({ selected, onChange, suppressions, loading }: {
     );
   }
 
-  const alwaysOn = suppressions.filter(s => s.alwaysApply);
+  const always = suppressions.filter(s => s.alwaysApply);
   const optional = suppressions.filter(s => !s.alwaysApply);
-
-  // Group optional by category
   const categories = [...new Set(optional.map(s => s.category))];
 
   return (
     <div className="suppression-section">
-      {alwaysOn.length > 0 && (
+      {always.length > 0 && (
         <div className="suppression-group">
           <div className="suppression-group-label">Always Applied <span className="suppression-group-note">— required on every segment</span></div>
-          {alwaysOn.map(s => (
+          {always.map(s => (
             <label key={s.recordId} className="suppression-item suppression-item-locked">
               <input type="checkbox" checked disabled />
               <div>
@@ -90,24 +96,44 @@ function SuppressionChecklist({ selected, onChange, suppressions, loading }: {
           ))}
         </div>
       )}
-      {categories.map(cat => (
-        <div key={cat} className="suppression-group">
-          <div className="suppression-group-label">{cat}</div>
-          {optional.filter(s => s.category === cat).map(s => (
-            <label key={s.recordId} className="suppression-item">
-              <input
-                type="checkbox"
-                checked={selected.includes(s.recordId)}
-                onChange={() => toggle(s.recordId)}
-              />
-              <div>
-                <span className="suppression-name">{s.name}</span>
-                {s.description && <span className="suppression-desc">{s.description}</span>}
-              </div>
-            </label>
-          ))}
-        </div>
-      ))}
+
+      {categories.map(cat => {
+        const items = optional.filter(s => s.category === cat);
+        return (
+          <div key={cat} className="suppression-group">
+            <div className="suppression-group-label">{cat}</div>
+            {items.map(s => {
+              const behavior = getSuppressionBehavior(s, purposes);
+              const isLocked = behavior === 'always' || behavior === 'required';
+              const isChecked = isLocked || selected.includes(s.recordId);
+
+              return (
+                <label
+                  key={s.recordId}
+                  className={`suppression-item ${isLocked ? 'suppression-item-locked' : ''} ${behavior === 'suggested' ? 'suppression-item-suggested' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    disabled={isLocked}
+                    onChange={() => toggle(s.recordId, behavior)}
+                  />
+                  <div>
+                    <span className="suppression-name">{s.name}</span>
+                    {behavior === 'required' && (
+                      <span className="suppression-behavior-badge badge-required">Required for selected purpose</span>
+                    )}
+                    {behavior === 'suggested' && (
+                      <span className="suppression-behavior-badge badge-suggested">Recommended for selected purpose</span>
+                    )}
+                    {s.description && <span className="suppression-desc">{s.description}</span>}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -124,9 +150,24 @@ export function NewSegment({ onAdd, refData }: Props) {
   const [inclusions, setInclusions] = useState<string[]>([]);
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [suppressions, setSuppressions] = useState<string[]>([]);
-  const [expectedUse, setExpectedUse] = useState<ExpectedUse>('multiple_campaigns');
+  const [purposes, setPurposes] = useState<SegmentPurpose[]>([]);
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Auto-apply suppressions when purposes change
+  useEffect(() => {
+    const autoIds = getAutoAppliedIds(refData.suppressions, purposes);
+    setSuppressions(prev => {
+      const toAdd = autoIds.filter(id => !prev.includes(id));
+      return toAdd.length ? [...prev, ...toAdd] : prev;
+    });
+  }, [purposes, refData.suppressions]);
+
+  const togglePurpose = (p: SegmentPurpose) => {
+    setPurposes(prev =>
+      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+    );
+  };
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -134,6 +175,7 @@ export function NewSegment({ onAdd, refData }: Props) {
     if (!businessGoal.trim()) e.businessGoal = 'Business goal is required.';
     if (!owner.trim()) e.owner = 'Owner is required.';
     if (inclusions.length === 0) e.inclusions = 'Add at least one inclusion criterion.';
+    if (purposes.length === 0) e.purposes = 'Select at least one segment purpose.';
     return e;
   };
 
@@ -156,7 +198,7 @@ export function NewSegment({ onAdd, refData }: Props) {
         inclusions,
         exclusions,
         suppressions,
-        expectedUse,
+        purposes,
       },
       layer3: null,
       owner: owner.trim(),
@@ -180,8 +222,8 @@ export function NewSegment({ onAdd, refData }: Props) {
     <div className="page page-narrow">
       <div className="page-header">
         <div>
-          <h1 className="page-title">New Segment Intake</h1>
-          <p className="page-subtitle">Stage 1: Business defines the audience</p>
+          <h1 className="page-title">New Segment Request</h1>
+          <p className="page-subtitle">Define your audience in plain language</p>
         </div>
       </div>
 
@@ -257,7 +299,7 @@ export function NewSegment({ onAdd, refData }: Props) {
         </section>
 
         <section className="form-section">
-          <h2 className="form-section-title">Layer 2: Business Definition</h2>
+          <h2 className="form-section-title">Segment Definition</h2>
 
           <div className="field">
             <label className="label">Business Goal <span className="required">*</span></label>
@@ -272,13 +314,24 @@ export function NewSegment({ onAdd, refData }: Props) {
           </div>
 
           <div className="field">
-            <label className="label">Campaign Intent <span className="label-hint">— Specific campaign or initiative this segment supports</span></label>
+            <label className="label">Campaign Intent <span className="label-hint">— What specific campaign or initiative is this supporting?</span></label>
             <input
               className="input"
               value={campaignIntent}
               onChange={e => setCampaignIntent(e.target.value)}
               placeholder="e.g. CFS 2027 Registration Campaign"
             />
+          </div>
+
+          <div className="field">
+            <label className="label">Inclusion Criteria <span className="required">*</span> <span className="label-hint">— Who qualifies? One criterion per entry.</span></label>
+            <TagInput values={inclusions} onChange={setInclusions} placeholder="e.g. Participated 2022–2025, press Enter" />
+            {errors.inclusions && <span className="field-error">{errors.inclusions}</span>}
+          </div>
+
+          <div className="field">
+            <label className="label">Exclusion Criteria <span className="label-hint">— Who is explicitly out?</span></label>
+            <TagInput values={exclusions} onChange={setExclusions} placeholder="e.g. Already registered for 2027, press Enter" />
           </div>
 
           <div className="field">
@@ -290,64 +343,44 @@ export function NewSegment({ onAdd, refData }: Props) {
               placeholder="e.g. Engaged in last 12 months — or — No requirement"
             />
           </div>
+        </section>
 
-          <div className="field">
-            <label className="label">Expected Use</label>
-            <div className="expected-use-options">
-              {([
-                {
-                  value: 'multiple_campaigns',
-                  label: 'Multiple Campaigns',
-                  desc: 'This segment will be reused across several campaigns over time — built once, refreshed as needed.',
-                },
-                {
-                  value: 'one_time',
-                  label: 'One-Time Use',
-                  desc: 'Built for a single specific send, then retired. No ongoing refresh needed.',
-                },
-                {
-                  value: 'seasonal',
-                  label: 'Seasonal',
-                  desc: 'Activated on a recurring cycle (e.g. every fall or each fiscal year) and dormant in between.',
-                },
-              ] as const).map(opt => (
-                <label key={opt.value} className={`expected-use-option ${expectedUse === opt.value ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="expectedUse"
-                    value={opt.value}
-                    checked={expectedUse === opt.value}
-                    onChange={() => setExpectedUse(opt.value)}
-                  />
-                  <div>
-                    <div className="expected-use-label">{opt.label}</div>
-                    <div className="expected-use-desc">{opt.desc}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
+        <section className="form-section">
+          <h2 className="form-section-title">Segment Purpose <span className="required">*</span></h2>
+          <p className="form-section-hint">How will this segment be used? Select all that apply. Suppressions will update automatically based on your selection.</p>
 
-          <div className="field">
-            <label className="label">Inclusion Criteria <span className="required">*</span> <span className="label-hint">— Who qualifies? (plain language)</span></label>
-            <TagInput values={inclusions} onChange={setInclusions} placeholder="e.g. Participated 2022–2025, press Enter" />
-            {errors.inclusions && <span className="field-error">{errors.inclusions}</span>}
+          <div className={`purpose-options ${errors.purposes ? 'input-error-border' : ''}`}>
+            {PURPOSE_OPTIONS.map(opt => (
+              <label
+                key={opt.value}
+                className={`purpose-option ${purposes.includes(opt.value) ? 'selected' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={purposes.includes(opt.value)}
+                  onChange={() => togglePurpose(opt.value)}
+                />
+                <div>
+                  <div className="purpose-label">{opt.label}</div>
+                  <div className="purpose-desc">{opt.desc}</div>
+                </div>
+              </label>
+            ))}
           </div>
+          {errors.purposes && <span className="field-error">{errors.purposes}</span>}
+        </section>
 
-          <div className="field">
-            <label className="label">Exclusion Criteria <span className="label-hint">— Who is explicitly out?</span></label>
-            <TagInput values={exclusions} onChange={setExclusions} placeholder="e.g. Already registered for 2027, press Enter" />
-          </div>
+        <section className="form-section">
+          <h2 className="form-section-title">Suppressions</h2>
+          <p className="form-section-hint">Suppression lists to apply to this segment. Some are required based on your selected purpose.</p>
 
-          <div className="field">
-            <label className="label">Known Suppressions <span className="label-hint">— Standard suppression lists to apply</span></label>
-            <SuppressionChecklist
-              selected={suppressions}
-              onChange={setSuppressions}
-              suppressions={refData.suppressions}
-              loading={refData.loading}
-            />
-          </div>
+          <SuppressionChecklist
+            selected={suppressions}
+            onChange={setSuppressions}
+            suppressions={refData.suppressions}
+            loading={refData.loading}
+            purposes={purposes}
+          />
         </section>
 
         <section className="form-section">
@@ -358,7 +391,7 @@ export function NewSegment({ onAdd, refData }: Props) {
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={3}
-              placeholder="Any context, open questions, or background for DevIT…"
+              placeholder="Any context, open questions, or background…"
             />
           </div>
         </section>

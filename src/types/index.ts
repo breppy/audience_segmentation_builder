@@ -1,4 +1,4 @@
-export type ExpectedUse = 'multiple_campaigns' | 'one_time' | 'seasonal';
+export type SegmentPurpose = 'email' | 'sms' | 'direct_mail' | 'paid' | 'export' | 'reporting';
 export type Channel = 'email' | 'sms' | 'paid' | 'mail';
 export type SegmentStatus =
   | 'draft'
@@ -18,7 +18,7 @@ export interface Layer2Definition {
   inclusions: string[];
   exclusions: string[];
   suppressions: string[]; // Airtable Known Suppressions record IDs
-  expectedUse: ExpectedUse;
+  purposes: SegmentPurpose[];
 }
 
 export interface Layer3Technical {
