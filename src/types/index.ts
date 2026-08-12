@@ -1,4 +1,13 @@
 export type SegmentPurpose = 'email' | 'sms' | 'direct_mail' | 'paid' | 'export' | 'reporting';
+export type FlagResolution = 'answered' | 'unknown' | 'ignored';
+
+export interface ReviewFlag {
+  id: string;
+  question: string;
+  hint: string;
+  resolution: FlagResolution | null;
+  answer: string;
+}
 export type Channel = 'email' | 'sms' | 'paid' | 'mail';
 export type SegmentStatus =
   | 'draft'
@@ -67,6 +76,7 @@ export interface Segment {
 
   campaignUsage: CampaignUsage[];
   notes: string;
+  reviewFlags: ReviewFlag[];
 }
 
 // Airtable reference data types

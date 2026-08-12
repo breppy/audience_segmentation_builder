@@ -799,6 +799,33 @@ export function SegmentDetail({
         </div>
       )}
 
+      {/* Review flags */}
+      {segment.reviewFlags && segment.reviewFlags.length > 0 && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <div className="flags-card">
+            <div className="flags-card-header">
+              Pre-submission Review
+              {(() => {
+                const open = segment.reviewFlags.filter(f => f.resolution === 'unknown').length;
+                return open > 0 ? <span className="review-flags-count" style={{ marginLeft: '.5rem' }}>{open} unknown</span> : null;
+              })()}
+            </div>
+            {segment.reviewFlags.map(f => (
+              <div key={f.id} className="flags-card-flag">
+                <div className="flags-card-meta">
+                  {f.resolution === 'answered' && <span className="flag-resolution-chip chip-answered">Answered</span>}
+                  {f.resolution === 'unknown' && <span className="flag-resolution-chip chip-unknown">Currently Unknown</span>}
+                  {f.resolution === 'ignored' && <span className="flag-resolution-chip chip-ignored">Not applicable</span>}
+                  {f.resolution === null && <span className="flag-resolution-chip chip-unknown">Open</span>}
+                </div>
+                <div className="flags-card-q">{f.question}</div>
+                {f.answer && <div className="flags-card-answer">{f.answer}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Danger zone */}
       <div className="danger-zone">
         <h3>Status &amp; Actions</h3>

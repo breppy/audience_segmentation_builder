@@ -575,3 +575,108 @@
 .mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
 .muted { color: var(--text-muted); }
 .small { font-size: 12px; }
+
+/* ─────────────── Review panel ─────────────── */
+.review-panel { display: flex; flex-direction: column; gap: 1.5rem; }
+.review-panel-title { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: .35rem; }
+.review-panel-sub { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+.review-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.review-summary-row { display: flex; gap: 1rem; font-size: 13px; align-items: baseline; }
+.review-summary-row span { color: var(--text-secondary); flex: 0 0 90px; }
+.review-summary-row strong { color: var(--text); }
+
+.review-flags { display: flex; flex-direction: column; gap: .75rem; }
+.review-flags-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: .25rem;
+}
+.review-flags-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--warning);
+  background: var(--warning-light);
+  padding: .15rem .5rem;
+  border-radius: 99px;
+}
+.review-flags-count.resolved { color: var(--success); background: var(--success-light); }
+
+.review-flag {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  transition: border-color .15s;
+}
+.review-flag.flag-open { border-left: 3px solid var(--warning); }
+.review-flag.flag-answered { border-left: 3px solid var(--success); opacity: .9; }
+.review-flag.flag-unknown { border-left: 3px solid var(--warning); opacity: .9; }
+.review-flag.flag-ignored { border-left: 3px solid var(--border); opacity: .75; }
+
+.review-flag-q { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: .65rem; }
+
+.review-flag-body { display: flex; flex-direction: column; gap: .5rem; }
+.review-flag-textarea { width: 100%; font-size: 13px; }
+.review-flag-options { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.review-flag-ignore {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  font-family: inherit;
+}
+.review-flag-ignore:hover { color: var(--text-secondary); }
+
+.review-flag-resolved { display: flex; align-items: flex-start; gap: .65rem; flex-wrap: wrap; }
+.flag-resolution-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: .15rem .5rem;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.chip-answered { background: var(--success-light); color: var(--success); border: 1px solid #86efac; }
+.chip-unknown { background: var(--warning-light); color: var(--warning); border: 1px solid #fde68a; }
+.chip-ignored { background: var(--border-light); color: var(--text-muted); border: 1px solid var(--border); }
+
+.review-flag-answer { font-size: 13px; color: var(--text); flex: 1; line-height: 1.5; }
+.review-flag-edit {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.review-flag-edit:hover { color: var(--primary-hover); }
+
+/* Read-only review flags on SegmentDetail */
+.flags-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.flags-card-header { padding: .75rem 1.25rem; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: .5rem; }
+.flags-card-flag { padding: .75rem 1.25rem; border-bottom: 1px solid var(--border-light); display: flex; flex-direction: column; gap: .35rem; }
+.flags-card-flag:last-child { border-bottom: none; }
+.flags-card-q { font-size: 13px; font-weight: 500; color: var(--text); }
+.flags-card-answer { font-size: 13px; color: var(--text-secondary); padding-left: .75rem; border-left: 2px solid var(--border); margin-top: .2rem; line-height: 1.5; }
+.flags-card-meta { display: flex; align-items: center; gap: .5rem; }

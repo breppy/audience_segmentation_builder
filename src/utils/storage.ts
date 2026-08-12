@@ -7,6 +7,9 @@ function migrate(raw: unknown): Segment {
   if (!Array.isArray(s.layer2.purposes)) {
     s.layer2 = { ...s.layer2, purposes: [] };
   }
+  if (!Array.isArray(s.reviewFlags)) {
+    (s as unknown as Record<string, unknown>).reviewFlags = [];
+  }
   return s as Segment;
 }
 
