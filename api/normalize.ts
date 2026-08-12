@@ -42,13 +42,15 @@ Respond with valid JSON only — no markdown fences, no explanation:
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const text = message.content[0].type === 'text' ? message.content[0].text.trim() : '{}';
+    const raw = message.content[0].type === 'text' ? message.content[0].text.trim() : '{}';
+    // Strip markdown code fences if the model wrapped the JSON
+    const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 
     let parsed: NormalizeResponse;
     try {
       parsed = JSON.parse(text);
     } catch {
-      return res.status(500).json({ error: 'Failed to parse AI response', raw: text });
+      return res.status(500).json({ error: 'Failed to parse AI response', raw });
     }
 
     if (!Array.isArray(parsed.inclusions) || !Array.isArray(parsed.exclusions)) {
