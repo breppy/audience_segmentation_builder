@@ -680,3 +680,27 @@
 .flags-card-q { font-size: 13px; font-weight: 500; color: var(--text); }
 .flags-card-answer { font-size: 13px; color: var(--text-secondary); padding-left: .75rem; border-left: 2px solid var(--border); margin-top: .2rem; line-height: 1.5; }
 .flags-card-meta { display: flex; align-items: center; gap: .5rem; }
+
+/* AI-parsed criteria section in review panel */
+.review-criteria-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.25rem; }
+.review-criteria-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+.review-criteria-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.review-criteria-badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 20px; }
+.review-criteria-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.5; }
+.review-criteria-group { margin-bottom: .9rem; }
+.review-criteria-group:last-of-type { margin-bottom: 0; }
+.review-criteria-group-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .4rem; }
+.review-criteria-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .35rem; }
+.review-criteria-item { font-size: 13px; padding: .4rem .65rem .4rem .9rem; border-radius: 6px; border-left: 3px solid transparent; line-height: 1.4; }
+.review-criteria-include { background: #f0fdf4; border-left-color: #22c55e; color: #166534; }
+.review-criteria-exclude { background: #fff7ed; border-left-color: #f97316; color: #9a3412; }
+.review-criteria-source { margin-top: 1rem; }
+.review-criteria-source summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; user-select: none; }
+.review-criteria-source summary:hover { color: var(--text); }
+.review-criteria-source-text { font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-top: .5rem; padding: .75rem; background: var(--bg); border-radius: 6px; }
+
+/* Field hint text */
+.field-hint { font-size: 12px; color: var(--text-secondary); margin-bottom: .4rem; line-height: 1.5; }
+
+/* Alert variations */
+.alert-error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: var(--radius); padding: .75rem 1rem; font-size: 13px; }
