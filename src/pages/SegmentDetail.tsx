@@ -197,8 +197,9 @@ function Layer2EditForm({ segment, refData, onSave, onCancel }: {
                       <input type="checkbox" checked={isChecked} disabled={isLocked} onChange={() => toggleSuppression(s.recordId, behavior)} />
                       <div>
                         <span className="suppression-name">{s.name}</span>
-                        {behavior === 'required' && <span className="suppression-behavior-badge badge-required">Required for selected purpose</span>}
-                        {behavior === 'suggested' && <span className="suppression-behavior-badge badge-suggested">Recommended for selected purpose</span>}
+                        {behavior === 'required' && <span className="suppression-behavior-badge badge-required">Required</span>}
+                        {behavior === 'suggested' && <span className="suppression-behavior-badge badge-suggested">Default: On</span>}
+                        {s.description && <span className="suppression-info" title={s.description} aria-label={s.description}>ⓘ</span>}
                       </div>
                     </label>
                   );

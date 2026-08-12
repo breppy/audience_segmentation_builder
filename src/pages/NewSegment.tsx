@@ -90,7 +90,7 @@ function SuppressionChecklist({ selected, onChange, suppressions, loading, purpo
               <input type="checkbox" checked disabled />
               <div>
                 <span className="suppression-name">{s.name}</span>
-                {s.description && <span className="suppression-desc">{s.description}</span>}
+                {s.description && <span className="suppression-info" title={s.description} aria-label={s.description}>ⓘ</span>}
               </div>
             </label>
           ))}
@@ -121,12 +121,14 @@ function SuppressionChecklist({ selected, onChange, suppressions, loading, purpo
                   <div>
                     <span className="suppression-name">{s.name}</span>
                     {behavior === 'required' && (
-                      <span className="suppression-behavior-badge badge-required">Required for selected purpose</span>
+                      <span className="suppression-behavior-badge badge-required">Required</span>
                     )}
                     {behavior === 'suggested' && (
-                      <span className="suppression-behavior-badge badge-suggested">Recommended for selected purpose</span>
+                      <span className="suppression-behavior-badge badge-suggested">Default: On</span>
                     )}
-                    {s.description && <span className="suppression-desc">{s.description}</span>}
+                    {s.description && (
+                      <span className="suppression-info" title={s.description} aria-label={s.description}>ⓘ</span>
+                    )}
                   </div>
                 </label>
               );
