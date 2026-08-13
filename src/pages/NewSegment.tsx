@@ -7,6 +7,15 @@ import { generateId, generateSegmentId } from '../utils/storage';
 import { PURPOSE_OPTIONS, PURPOSE_LABEL, getSuppressionBehavior, getAutoAppliedIds } from '../utils/purposes';
 import { generateFlags } from '../utils/reviewFlags';
 
+interface LuminateRecommendation {
+  primaryType: string;
+  rationale: string;
+  requiresDevIT: boolean;
+  alternatives: string | null;
+  suppressionApproach: string;
+  confidence: 'clear' | 'unclear';
+}
+
 interface Props {
   onAdd: (segment: Segment) => void;
   refData: AirtableRefData;
@@ -80,6 +89,50 @@ function SuppressionChecklist({ selected, onChange, suppressions, loading, purpo
 
 // -- Review panel -------------------------------------------------------------
 
+const TYPE_META: Record<string, { color: string; label: string }> = {
+  'CRM-Synced':       { color: 'rec-crm',         label: 'CRM-Synced' },
+  'Query-Based':      { color: 'rec-query',        label: 'Query-Based' },
+  'Report-Based':     { color: 'rec-report',       label: 'Report-Based' },
+  'Task-Based':       { color: 'rec-task',         label: 'Task-Based' },
+  'Interaction-Based':{ color: 'rec-interaction',  label: 'Interaction-Based' },
+  'Manual Upload':    { color: 'rec-manual',       label: 'Manual Upload' },
+  'Interest Group':   { color: 'rec-interest',     label: 'Interest Group' },
+  'Unclear':          { color: 'rec-unclear',      label: 'Unclear' },
+};
+
+function RecommendationCard({ rec }: { rec: LuminateRecommendation }) {
+  const meta = TYPE_META[rec.primaryType] ?? { color: 'rec-unclear', label: rec.primaryType };
+  return (
+    <div className="review-rec-section">
+      <div className="review-rec-header">
+        <span className="review-rec-title">Luminate Build Recommendation</span>
+        <div className="review-rec-badges">
+          <span className={`review-rec-type-badge ${meta.color}`}>{meta.label}</span>
+          {rec.requiresDevIT && <span className="review-rec-devit-badge">DevIT Request Required</span>}
+        </div>
+      </div>
+
+      <p className="review-rec-rationale">{rec.rationale}</p>
+
+      {rec.confidence === 'unclear' && rec.alternatives && (
+        <div className="review-rec-unclear">
+          <span className="review-rec-unclear-label">⚠ Needs clarification</span>
+          <span>{rec.alternatives}</span>
+        </div>
+      )}
+
+      {rec.confidence === 'clear' && rec.alternatives && (
+        <p className="review-rec-alt"><strong>Alternative to consider:</strong> {rec.alternatives}</p>
+      )}
+
+      <div className="review-rec-suppression">
+        <div className="review-rec-suppression-label">Suppression approach</div>
+        <div className="review-rec-suppression-body">{rec.suppressionApproach}</div>
+      </div>
+    </div>
+  );
+}
+
 function ReviewPanel({ flags, onFlagsChange, summary, onSubmit, onBack }: {
   flags: ReviewFlag[];
   onFlagsChange: (f: ReviewFlag[]) => void;
@@ -91,6 +144,7 @@ function ReviewPanel({ flags, onFlagsChange, summary, onSubmit, onBack }: {
     suppressionCount: number;
     inclusionText: string;
     exclusionText: string;
+    recommendation: LuminateRecommendation | null;
   };
   onSubmit: () => void;
   onBack: () => void;
@@ -123,6 +177,9 @@ function ReviewPanel({ flags, onFlagsChange, summary, onSubmit, onBack }: {
         </div>
         <div className="review-summary-row"><span>Suppressions</span><strong>{summary.suppressionCount} active</strong></div>
       </div>
+
+      {/* Luminate build recommendation */}
+      {summary.recommendation && <RecommendationCard rec={summary.recommendation} />}
 
       {/* AI-parsed criteria */}
       <div className="review-criteria-section">
@@ -252,6 +309,7 @@ export function NewSegment({ onAdd, refData }: Props) {
   const [flags, setFlags] = useState<ReviewFlag[]>([]);
   const [normalizedInclusions, setNormalizedInclusions] = useState<string[]>([]);
   const [normalizedExclusions, setNormalizedExclusions] = useState<string[]>([]);
+  const [recommendation, setRecommendation] = useState<LuminateRecommendation | null>(null);
   const [normalizing, setNormalizing] = useState(false);
   const [normalizeError, setNormalizeError] = useState<string | null>(null);
 
@@ -288,7 +346,7 @@ export function NewSegment({ onAdd, refData }: Props) {
       const res = await fetch('/api/normalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inclusionText, exclusionText }),
+        body: JSON.stringify({ inclusionText, exclusionText, businessGoal, engagementRequirement, purposes }),
       });
 
       if (!res.ok) {
@@ -296,10 +354,15 @@ export function NewSegment({ onAdd, refData }: Props) {
         throw new Error((body as { error?: string }).error || 'Normalization failed');
       }
 
-      const { inclusions, exclusions } = await res.json() as { inclusions: string[]; exclusions: string[] };
+      const { inclusions, exclusions, recommendation: rec } = await res.json() as {
+        inclusions: string[];
+        exclusions: string[];
+        recommendation: LuminateRecommendation;
+      };
 
       setNormalizedInclusions(inclusions);
       setNormalizedExclusions(exclusions);
+      setRecommendation(rec ?? null);
       setFlags(generateFlags(
         { businessGoal, inclusions, exclusions, engagementRequirement, suppressions, purposes },
         refData.suppressions,
@@ -369,6 +432,7 @@ export function NewSegment({ onAdd, refData }: Props) {
             suppressionCount: suppressions.length,
             inclusionText,
             exclusionText,
+            recommendation,
           }}
           onSubmit={handleSaveDraft}
           onBack={() => setShowReview(false)}
