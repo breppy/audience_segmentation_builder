@@ -12,6 +12,7 @@ interface LuminateRecommendation {
   rationale: string;
   requiresDevIT: boolean;
   alternatives: string | null;
+  decidingQuestion: string | null;
   suppressionApproach: string;
   confidence: 'clear' | 'unclear';
 }
@@ -113,6 +114,13 @@ function RecommendationCard({ rec }: { rec: LuminateRecommendation }) {
       </div>
 
       <p className="review-rec-rationale">{rec.rationale}</p>
+
+      {rec.decidingQuestion && (
+        <div className="review-rec-deciding">
+          <span className="review-rec-deciding-label">Key question</span>
+          <span>{rec.decidingQuestion}</span>
+        </div>
+      )}
 
       {rec.confidence === 'unclear' && rec.alternatives && (
         <div className="review-rec-unclear">

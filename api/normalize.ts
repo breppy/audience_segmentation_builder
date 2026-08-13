@@ -7,6 +7,7 @@ interface LuminateRecommendation {
   rationale: string;
   requiresDevIT: boolean;
   alternatives: string | null;
+  decidingQuestion: string | null;
   suppressionApproach: string;
   confidence: 'clear' | 'unclear';
 }
@@ -108,15 +109,19 @@ Respond with valid JSON only — no markdown fences, no explanation:
     "primaryType": "CRM-Synced",
     "rationale": "1-2 sentences explaining why this type fits this segment",
     "requiresDevIT": true,
+    "confidence": "clear",
+    "decidingQuestion": null,
     "alternatives": null,
-    "suppressionApproach": "How the suppressions for this segment should be handled",
-    "confidence": "clear"
+    "suppressionApproach": "How the suppressions for this segment should be handled"
   }
 }
 
-Valid values for primaryType: "CRM-Synced" | "Query-Based" | "Report-Based" | "Task-Based" | "Interaction-Based" | "Manual Upload" | "Interest Group" | "Unclear"
-For "Unclear", set alternatives to: "Potentially [Type A] or [Type B] — need to review with DevIT to confirm."
-For confidence: "clear" when one type obviously fits; "unclear" when genuinely ambiguous.`;
+Field rules:
+- primaryType: "CRM-Synced" | "Query-Based" | "Report-Based" | "Task-Based" | "Interaction-Based" | "Manual Upload" | "Interest Group" | "Unclear"
+- confidence: "clear" when one type obviously fits; "unclear" when genuinely ambiguous
+- decidingQuestion: when confidence is "unclear" OR when the recommendation could change based on one key factor, set this to the single most important question that would resolve the ambiguity — e.g. "Should CRM or Luminate be the source of truth for this giving history?" or "Does this audience need day-specific registration detail, or just the participant list?". Set null when the recommendation is unambiguously clear.
+- alternatives: when confidence is "unclear", name both candidate types — "Potentially [Type A] or [Type B] — need to review with DevIT to confirm." When confidence is "clear" but an alternative is worth noting, describe it briefly. Otherwise null.
+- For "Unclear" primaryType, requiresDevIT should be true.`;
 
   try {
     const message = await client.messages.create({

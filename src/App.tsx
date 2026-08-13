@@ -29,6 +29,13 @@ export default function App() {
   return (
     <BrowserRouter>
       <Layout>
+        <div className="poc-banner">
+          <span className="poc-banner-label">Proof of Concept</span>
+          <span className="poc-banner-text">
+            Test requests only. Do not enter constituent names, IDs, health information, or other sensitive data.
+            Segment criteria are sent to Claude AI for parsing. Submitted segments are written to the live Airtable Segment Library.
+          </span>
+        </div>
         {syncError && (
           <div className="alert alert-warning" style={{ margin: '0.75rem 1.5rem 0' }}>
             <strong>Airtable sync failed</strong> — your segment was saved locally but could not be written to Airtable.{' '}
